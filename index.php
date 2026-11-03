@@ -1,31 +1,11 @@
 <?php
-/**
- * =====================================================================
- * CAREFLOW INTEGRATED HOSPITAL MANAGEMENT SYSTEM (IHMS) - MASTER FILE
- * File: index.php (Complete All-in-One Chapter 1 & Chapter 2 Suite)
- * Author: Sam Junior Matumbayi (Reg: DSE-02-0171/2025)
- * Institution: Zetech University - Department of Computer Science
- * Project: Diploma in Software Engineering Capstone
- * 
- * CORE CHAPTER 1 MODULES INCLUDED (Permanent Left Sidebar 1 to 10):
- * 1.  Hospital Executive Dashboard (Command Centre & All Modules Hub)
- * 2.  Patient Intake & Registration (Demographic & OPD Capture)
- * 3.  Triage Desk & Bio-signals Acuity Assessment (Red/Yellow/Green)
- * 4.  Clinical Doctor Consultation & Prescription Workstation
- * 5.  Diagnostic Pathology Laboratory Tests (mRDT & CBC)
- * 6.  Pharmacy Dispensary & Formulary Stock Tracking
- * 7.  Cashier Billing Desk & M-Pesa / Cash POS Invoicing
- * 8.  Official Medical Receipt (80mm POS Thermal & A4 Invoice)
- * 9.  Security Audit Trail Activity Logs
- * 10. System Settings & Staff Accounts Manager
- * =====================================================================
- */
+
 ob_start();
 session_start();
 date_default_timezone_set('Africa/Nairobi');
 
 // ---------------------------------------------------------------------
-// 1. DATABASE CONFIGURATION & PDO CONNECTION (With Session Auto-Fallback)
+//  DATABASE CONFIGURATION & PDO CONNECTION (With Session Auto-Fallback)
 // ---------------------------------------------------------------------
 $dbHost = 'localhost';
 $dbUser = 'root';
@@ -62,7 +42,7 @@ try {
             gender ENUM('Male','Female','Other') NOT NULL,
             phone VARCHAR(20) NOT NULL,
             payment_scheme ENUM('Cash','SHA','Private Insurance') DEFAULT 'Cash',
-            current_status ENUM('Registered','Triaged','In_Consultation','Lab_Ordered','Pharmacy','Billed','Discharged') DEFAULT 'Registered',
+            current_status ENUM('Registered','Triaged','In_Consultation','Lab_Pending','Pharmacy_Pending','Billing_Pending','Discharged') DEFAULT 'Registered',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB;
 
@@ -82,7 +62,7 @@ try {
 }
 
 // ---------------------------------------------------------------------
-// 2. HELPER FUNCTIONS & SESSION MASQUERADE
+// HELPER FUNCTIONS & SESSION ROLE SWITCHER
 // ---------------------------------------------------------------------
 function safe_str($v, $d = '') { return (isset($v) && !is_array($v)) ? trim((string)$v) : $d; }
 function safe_int($v, $d = 0) { return (isset($v) && is_numeric($v)) ? (int)$v : $d; }
@@ -92,12 +72,12 @@ function safe_float($v, $d = 0.0) { return (isset($v) && is_numeric($v)) ? (floa
 if (isset($_GET['switch_role'])) {
     $target = safe_str($_GET['switch_role']);
     $roleMap = [
-        'admin'      => ['id' => 1, 'username' => 'admin',        'full_name' => 'Dr. Harrison Omondi', 'role' => 'admin',      'department' => 'Hospital Administration',       'tab' => 'dashboard'],
-        'doctor'     => ['id' => 2, 'username' => 'doc_kamau',    'full_name' => 'Dr. Mercy Kamau, MD', 'role' => 'doctor',     'department' => 'Outpatient Clinical Services',  'tab' => 'consultation'],
-        'nurse'      => ['id' => 3, 'username' => 'nurse_faith',  'full_name' => 'Faith Wanjiku, BSN',  'role' => 'nurse',      'department' => 'Emergency & Triage Station',    'tab' => 'triage'],
-        'pharmacist' => ['id' => 4, 'username' => 'pharm_otieno', 'full_name' => 'Kevin Otieno, BPharm','role' => 'pharmacist', 'department' => 'Main Hospital Pharmacy',        'tab' => 'pharmacy'],
-        'lab_tech'   => ['id' => 5, 'username' => 'lab_jane',     'full_name' => 'Jane Muthoni, MLS',   'role' => 'lab_tech',   'department' => 'Diagnostic Pathology Lab',      'tab' => 'laboratory'],
-        'accountant' => ['id' => 6, 'username' => 'acc_peter',    'full_name' => 'Peter Mwangi, CPA',   'role' => 'accountant', 'department' => 'Billing & Cashier Revenue Desk', 'tab' => 'billing'],
+        'admin'      => ['id' => 1, 'username' => 'admin',      'full_name' => 'Admin',          'role' => 'admin',      'department' => 'Hospital Administration',       'tab' => 'dashboard'],
+        'doctor'     => ['id' => 2, 'username' => 'doctor',     'full_name' => 'Doctor',         'role' => 'doctor',     'department' => 'Outpatient Clinical Services',  'tab' => 'consultation'],
+        'nurse'      => ['id' => 3, 'username' => 'nurse',      'full_name' => 'Nurse',          'role' => 'nurse',      'department' => 'Emergency & Triage Station',    'tab' => 'triage'],
+        'pharmacist' => ['id' => 4, 'username' => 'pharmacist', 'full_name' => 'Pharmacist',     'role' => 'pharmacist', 'department' => 'Main Hospital Pharmacy',        'tab' => 'pharmacy'],
+        'lab_tech'   => ['id' => 5, 'username' => 'lab_tech',   'full_name' => 'Lab Technician', 'role' => 'lab_tech',   'department' => 'Diagnostic Pathology Lab',      'tab' => 'laboratory'],
+        'accountant' => ['id' => 6, 'username' => 'accountant', 'full_name' => 'Accountant',     'role' => 'accountant', 'department' => 'Billing & Cashier Revenue Desk', 'tab' => 'billing'],
     ];
     if (isset($roleMap[$target])) {
         $_SESSION['user'] = $roleMap[$target];
@@ -109,7 +89,7 @@ if (isset($_GET['switch_role'])) {
 
 // Active Module Tab (Default: 1. Dashboard)
 $activeTab = safe_str($_GET['tab'] ?? null, 'dashboard');
-$allowedTabs = ['dashboard', 'registration', 'triage', 'consultation', 'laboratory', 'pharmacy', 'billing', 'receipt', 'audit', 'settings'];
+$allowedTabs = ['dashboard', 'pipeline', 'registration', 'triage', 'consultation', 'laboratory', 'pharmacy', 'billing', 'receipt', 'audit', 'settings'];
 if (!in_array($activeTab, $allowedTabs)) {
     $activeTab = 'dashboard';
 }
@@ -120,34 +100,38 @@ if (isset($_GET['theme'])) {
 }
 $isDarkBlue = (isset($_SESSION['theme']) && $_SESSION['theme'] === 'dark_blue');
 
-// Default Administrator User (Dr. Harrison Omondi - HO)
-if (empty($_SESSION['user'])) {
-    $_SESSION['user'] = [
-        'id' => 1,
-        'username' => 'admin',
-        'full_name' => 'Dr. Harrison Omondi',
-        'role' => 'admin',
-        'department' => 'Hospital Administration'
-    ];
+// Generic System Roles Definition
+$systemRoles = [
+    'admin'      => ['id' => 1, 'username' => 'admin',      'full_name' => 'Admin',          'role' => 'admin',      'department' => 'Hospital Administration'],
+    'doctor'     => ['id' => 2, 'username' => 'doctor',     'full_name' => 'Doctor',         'role' => 'doctor',     'department' => 'Outpatient Clinical Services'],
+    'nurse'      => ['id' => 3, 'username' => 'nurse',      'full_name' => 'Nurse',          'role' => 'nurse',      'department' => 'Emergency & Triage Station'],
+    'pharmacist' => ['id' => 4, 'username' => 'pharmacist', 'full_name' => 'Pharmacist',     'role' => 'pharmacist', 'department' => 'Main Hospital Pharmacy'],
+    'lab_tech'   => ['id' => 5, 'username' => 'lab_tech',   'full_name' => 'Lab Technician', 'role' => 'lab_tech',   'department' => 'Diagnostic Pathology Lab'],
+    'accountant' => ['id' => 6, 'username' => 'accountant', 'full_name' => 'Accountant',     'role' => 'accountant', 'department' => 'Billing & Cashier Revenue Desk'],
+];
+
+// Clean session if user is not set or has legacy names
+if (empty($_SESSION['user']) || empty($_SESSION['user']['role']) || !isset($systemRoles[$_SESSION['user']['role']]) || strpos($_SESSION['user']['full_name'] ?? '', 'Omondi') !== false || strpos($_SESSION['user']['full_name'] ?? '', 'Kamau') !== false || strpos($_SESSION['user']['full_name'] ?? '', 'Wanjiku') !== false) {
+    $roleKey = $_SESSION['user']['role'] ?? 'admin';
+    $_SESSION['user'] = $systemRoles[$roleKey] ?? $systemRoles['admin'];
 }
 $currentUser = $_SESSION['user'];
 
 // Dynamic Initials Calculation
-$userInitials = 'HO';
-if (!empty($currentUser['full_name'])) {
-    $clean = trim(str_replace(['Dr.', 'Dr', 'MD', 'BSN', 'CPA', 'BPharm', 'MLS', ','], '', $currentUser['full_name']));
-    $parts = array_values(array_filter(explode(' ', $clean)));
-    if (count($parts) >= 2) {
-        $userInitials = strtoupper(substr($parts[0], 0, 1) . substr($parts[1], 0, 1));
-    } elseif (count($parts) === 1) {
-        $userInitials = strtoupper(substr($parts[0], 0, 2));
-    }
-}
+$roleInitialsMap = [
+    'admin'      => 'AD',
+    'doctor'     => 'DR',
+    'nurse'      => 'RN',
+    'pharmacist' => 'PH',
+    'lab_tech'   => 'LT',
+    'accountant' => 'AC',
+];
+$userInitials = $roleInitialsMap[$currentUser['role']] ?? strtoupper(substr($currentUser['username'] ?? 'AD', 0, 2));
 
 // Facility Settings State
-if (!isset($_SESSION['facility_settings'])) {
+if (!isset($_SESSION['facility_settings']) || empty($_SESSION['facility_settings']['hospital_name']) || strpos($_SESSION['facility_settings']['hospital_name'], 'CareFlow') !== false) {
     $_SESSION['facility_settings'] = [
-        'hospital_name'    => 'CareFlow Integrated Health Centre',
+        'hospital_name'    => 'AfyaSmart Integrated Health Centre',
         'moh_code'         => '14892',
         'facility_level'   => 'Level 4 Hospital / Sub-County Referral',
         'consultation_fee' => 500.00,
@@ -157,79 +141,189 @@ if (!isset($_SESSION['facility_settings'])) {
     ];
 }
 
-// Patient Records Session Storage
-if (!isset($_SESSION['patients'])) {
+// Patient Records Session Storage (Normalized 6-Department Life-Cycle + Discharged)
+if (!isset($_SESSION['patients']) || count($_SESSION['patients']) < 4) {
     $_SESSION['patients'] = [
+        ['patient_id' => 23, 'opd_number' => 'OPD-2025-023', 'full_name' => 'Matty Jeff',    'gender' => 'Female', 'phone' => '+254 712 998 877', 'payment_scheme' => 'SHA',  'current_status' => 'Discharged'],
+        ['patient_id' => 22, 'opd_number' => 'OPD-2025-022', 'full_name' => 'Kevin Otieno',  'gender' => 'Male',   'phone' => '+254 745 112 233', 'payment_scheme' => 'Cash', 'current_status' => 'Billing_Pending'],
+        ['patient_id' => 21, 'opd_number' => 'OPD-2025-021', 'full_name' => 'John Kiprono',  'gender' => 'Male',   'phone' => '+254 711 234 567', 'payment_scheme' => 'SHA',  'current_status' => 'Pharmacy_Pending'],
+        ['patient_id' => 20, 'opd_number' => 'OPD-2025-020', 'full_name' => 'Grace Nyambura','gender' => 'Female', 'phone' => '+254 722 345 678', 'payment_scheme' => 'Private Insurance', 'current_status' => 'Lab_Pending'],
         ['patient_id' => 19, 'opd_number' => 'OPD-2025-019', 'full_name' => 'Samuel Mwangi', 'gender' => 'Male',   'phone' => '+254 712 345 678', 'payment_scheme' => 'Cash', 'current_status' => 'Triaged'],
         ['patient_id' => 18, 'opd_number' => 'OPD-2025-018', 'full_name' => 'Mary Wambui',  'gender' => 'Female', 'phone' => '+254 722 987 654', 'payment_scheme' => 'SHA',  'current_status' => 'In_Consultation'],
         ['patient_id' => 17, 'opd_number' => 'OPD-2025-017', 'full_name' => 'John Ouma',    'gender' => 'Male',   'phone' => '+254 733 456 789', 'payment_scheme' => 'Cash', 'current_status' => 'Registered'],
     ];
 }
 
+// Pharmacy Formulary Stock Session Storage (Dynamic Real-Time Inventory)
+if (!isset($_SESSION['pharmacy_inventory'])) {
+    $_SESSION['pharmacy_inventory'] = [
+        ['item_code' => 'MED-001', 'item_name' => 'Amoxicillin 500mg Caps',           'category' => 'Antibiotic',       'stock_qty' => 120, 'unit_price' => 20.00],
+        ['item_code' => 'MED-002', 'item_name' => 'Paracetamol 500mg Tabs',           'category' => 'Analgesic',        'stock_qty' => 350, 'unit_price' => 10.00],
+        ['item_code' => 'MED-003', 'item_name' => 'Artemether/Lumefantrine 20/120mg', 'category' => 'Antimalarial',    'stock_qty' => 95,  'unit_price' => 25.00],
+        ['item_code' => 'MED-004', 'item_name' => 'Metformin 500mg Tabs',             'category' => 'Antidiabetic',     'stock_qty' => 80,  'unit_price' => 15.00],
+        ['item_code' => 'MED-005', 'item_name' => 'Amlodipine 5mg Tabs',              'category' => 'Antihypertensive', 'stock_qty' => 70,  'unit_price' => 18.00],
+        ['item_code' => 'MED-006', 'item_name' => 'Cetirizine 10mg Tabs',             'category' => 'Antihistamine',    'stock_qty' => 140, 'unit_price' => 12.00],
+        ['item_code' => 'MED-007', 'item_name' => 'Omeprazole 20mg Caps',             'category' => 'Gastrointestinal',  'stock_qty' => 110, 'unit_price' => 22.00],
+        ['item_code' => 'MED-008', 'item_name' => 'Oral Rehydration Salts (ORS)',     'category' => 'Supplements',      'stock_qty' => 200, 'unit_price' => 30.00],
+    ];
+}
+
+// Revenue Ledger Session Storage (M-Pesa + Cash Transactions)
+if (!isset($_SESSION['revenue_ledger'])) {
+    $_SESSION['revenue_ledger'] = [
+        ['receipt_no' => 'REC-71958', 'patient_id' => 10, 'patient_name' => 'Faith Muthoni',   'amount' => 3250.00, 'payment_mode' => 'M-Pesa STK', 'settled_at' => '07:30:00'],
+        ['receipt_no' => 'REC-71960', 'patient_id' => 12, 'patient_name' => 'Dennis Kipchoge', 'amount' => 3250.00, 'payment_mode' => 'Cash',       'settled_at' => '08:15:00'],
+        ['receipt_no' => 'REC-71967', 'patient_id' => 23, 'patient_name' => 'Matty Jeff',      'amount' => 3250.00, 'payment_mode' => 'M-Pesa STK', 'settled_at' => '09:40:00'],
+    ];
+}
+
 // ---------------------------------------------------------------------
-// 3. ACTION POST HANDLERS (Registration, Triage, Consult, Dispense, Bill, Settings)
+//  ACTION POST & GET HANDLERS (Registration, Transitions, Triage, Consult, Dispense, Bill)
 // ---------------------------------------------------------------------
+// Fast Real-Time Transition Handler (Supports instant GET or POST)
+if (isset($_REQUEST['action']) && $_REQUEST['action'] === 'transition_stage') {
+    $pid = safe_int($_REQUEST['patient_id'] ?? null);
+    $toStage = safe_str($_REQUEST['to_stage'] ?? null);
+    $allowedStages = ['Registered', 'Triaged', 'In_Consultation', 'Lab_Pending', 'Pharmacy_Pending', 'Billing_Pending', 'Discharged'];
+    if ($pid && in_array($toStage, $allowedStages)) {
+        foreach ($_SESSION['patients'] as &$p) {
+            if ($p['patient_id'] === $pid) {
+                $p['current_status'] = $toStage;
+                break;
+            }
+        }
+        $returnTab = safe_str($_REQUEST['return_tab'] ?? null, 'dashboard');
+        header("Location: index.php?tab=" . urlencode($returnTab) . "&patient_id={$pid}&msg=stage_transitioned");
+        exit;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = safe_str($_POST['action'] ?? null);
 
-    // 1. Register Patient
+    // Register Patient
     if ($action === 'register_patient') {
         $pName  = safe_str($_POST['full_name'] ?? null, 'New Patient');
         $phone  = safe_str($_POST['phone'] ?? null, '+254 700 000 000');
         $gender = safe_str($_POST['gender'] ?? null, 'Male');
         $scheme = safe_str($_POST['payment_scheme'] ?? null, 'Cash');
-        $newId  = count($_SESSION['patients']) + 20;
+        $newId  = count($_SESSION['patients']) + 25;
         $opd    = 'OPD-2025-' . str_pad($newId, 3, '0', STR_PAD_LEFT);
 
         array_unshift($_SESSION['patients'], [
-            'patient_id' => $newId, 'opd_number' => $opd, 'full_name' => $pName,
-            'gender' => $gender, 'phone' => $phone, 'payment_scheme' => $scheme, 'current_status' => 'Registered'
+            'patient_id'     => $newId,
+            'opd_number'     => $opd,
+            'full_name'      => $pName,
+            'gender'         => $gender,
+            'phone'          => $phone,
+            'payment_scheme' => $scheme,
+            'current_status' => 'Registered'
         ]);
         header("Location: index.php?tab=triage&patient_id={$newId}&msg=patient_registered");
         exit;
     }
 
-    // 2. Save Triage Vitals
+    //  Save Triage Vitals
     if ($action === 'save_triage') {
         $pid = safe_int($_POST['patient_id'] ?? null, 19);
         foreach ($_SESSION['patients'] as &$p) {
-            if ($p['patient_id'] === $pid) { $p['current_status'] = 'Triaged'; break; }
+            if ($p['patient_id'] === $pid) {
+                $p['current_status'] = 'Triaged';
+                break;
+            }
         }
         header("Location: index.php?tab=consultation&patient_id={$pid}&msg=vitals_saved");
         exit;
     }
 
-    // 3. Save Doctor Consultation
+    //  Save Doctor Consultation
     if ($action === 'save_consultation') {
         $pid = safe_int($_POST['patient_id'] ?? null, 19);
+        $routeTo = safe_str($_POST['route_to'] ?? null, 'pharmacy');
+        $nextStatus = ($routeTo === 'lab') ? 'Lab_Pending' : 'Pharmacy_Pending';
+        $destTab = ($routeTo === 'lab') ? 'laboratory' : 'pharmacy';
+
         foreach ($_SESSION['patients'] as &$p) {
-            if ($p['patient_id'] === $pid) { $p['current_status'] = 'In_Consultation'; break; }
+            if ($p['patient_id'] === $pid) {
+                $p['current_status'] = $nextStatus;
+                break;
+            }
         }
-        header("Location: index.php?tab=pharmacy&patient_id={$pid}&msg=consult_saved");
+        header("Location: index.php?tab={$destTab}&patient_id={$pid}&msg=consult_saved");
         exit;
     }
 
-    // 4. Dispense Medication
+    //  Complete Lab Test
+    if ($action === 'complete_lab') {
+        $pid = safe_int($_POST['patient_id'] ?? null, 19);
+        foreach ($_SESSION['patients'] as &$p) {
+            if ($p['patient_id'] === $pid) {
+                $p['current_status'] = 'Pharmacy_Pending';
+                break;
+            }
+        }
+        header("Location: index.php?tab=pharmacy&patient_id={$pid}&msg=lab_completed");
+        exit;
+    }
+
+    //  Dispense Medication (Decrements stock inventory)
     if ($action === 'dispense_medication') {
         $pid = safe_int($_POST['patient_id'] ?? null, 19);
         foreach ($_SESSION['patients'] as &$p) {
-            if ($p['patient_id'] === $pid) { $p['current_status'] = 'Pharmacy'; break; }
+            if ($p['patient_id'] === $pid) {
+                $p['current_status'] = 'Billing_Pending';
+                break;
+            }
+        }
+        if (!empty($_SESSION['pharmacy_inventory'])) {
+            foreach ($_SESSION['pharmacy_inventory'] as &$med) {
+                if ($med['stock_qty'] > 5) {
+                    $med['stock_qty'] -= 2;
+                }
+            }
         }
         header("Location: index.php?tab=billing&patient_id={$pid}&msg=dispensed");
         exit;
     }
 
-    // 5. Cashier Settle Bill
+    //  Cashier Settle Bill (Records payment in ledger)
     if ($action === 'settle_bill') {
         $pid = safe_int($_POST['patient_id'] ?? null, 19);
+        $patName = 'Walk-in Patient';
         foreach ($_SESSION['patients'] as &$p) {
-            if ($p['patient_id'] === $pid) { $p['current_status'] = 'Discharged'; break; }
+            if ($p['patient_id'] === $pid) {
+                $p['current_status'] = 'Discharged';
+                $patName = $p['full_name'];
+                break;
+            }
         }
+        $amountPaid = ($_SESSION['facility_settings']['consultation_fee'] ?? 500.00) + 2750.00;
+        $_SESSION['revenue_ledger'][] = [
+            'receipt_no'   => 'REC-' . rand(71970, 79999),
+            'patient_id'   => $pid,
+            'patient_name' => $patName,
+            'amount'       => $amountPaid,
+            'payment_mode' => 'M-Pesa STK',
+            'settled_at'   => date('H:i:s')
+        ];
         header("Location: index.php?tab=receipt&patient_id={$pid}&msg=paid");
         exit;
     }
 
-    // 6. Save Facility Settings
+    //  Reset Patient Workflow (Re-admit for Intake)
+    if ($action === 'reset_patient') {
+        $pid = safe_int($_POST['patient_id'] ?? null, 19);
+        foreach ($_SESSION['patients'] as &$p) {
+            if ($p['patient_id'] === $pid) {
+                $p['current_status'] = 'Registered';
+                break;
+            }
+        }
+        header("Location: index.php?tab=triage&patient_id={$pid}&msg=patient_readmitted");
+        exit;
+    }
+
+    //  Save Facility Settings
     if ($action === 'save_settings') {
         $_SESSION['facility_settings']['hospital_name']    = safe_str($_POST['hospital_name'] ?? null, $_SESSION['facility_settings']['hospital_name']);
         $_SESSION['facility_settings']['moh_code']         = safe_str($_POST['moh_code'] ?? null, $_SESSION['facility_settings']['moh_code']);
@@ -255,18 +349,83 @@ foreach ($_SESSION['patients'] as $sp) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CareFlow IHMS - Integrated Hospital Management System</title>
+  <title>AfyaSmart IHMS - Integrated Hospital Management System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
     .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Production-Grade Medical Print Engine */
     @media print {
-      body * { visibility: hidden; }
-      #printableReceipt, #printableReceipt * { visibility: visible; }
-      #printableReceipt { position: absolute; left: 0; top: 0; width: 100%; }
-      .no-print { display: none !important; }
+      /* 1. Global Reset - remove body scroll/flex restrictions */
+      html, body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        display: block !important;
+      }
+
+      /* 2. Unconstrain main and section wrappers */
+      main, section {
+        overflow: visible !important;
+        display: block !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      /* 3. Hide all page chrome and layout structures by default */
+      body * {
+        visibility: hidden !important;
+      }
+
+      /* 4. Make ONLY the official printable receipt visible */
+      #printableReceipt, #printableReceipt * {
+        visibility: visible !important;
+      }
+
+      /* 5. Position receipt at exact top center of printed page */
+      #printableReceipt {
+        position: absolute !important;
+        left: 0 !important;
+        right: 0 !important;
+        top: 0 !important;
+        margin: 0 auto !important;
+        max-width: 420px !important;
+        width: 100% !important;
+        border: 1px dashed #000000 !important;
+        border-radius: 8px !important;
+        padding: 20px !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        box-shadow: none !important;
+        display: block !important;
+        page-break-inside: avoid !important;
+      }
+
+      #printableReceipt * {
+        color: #000000 !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+      }
+
+      /* 6. Suppress interactive action buttons, headers, sidebars, and nav */
+      header, aside, footer, .no-print, .no-print *, button, a, #headerRoleDropdown, div[class*="URL STATUS BAR"], nav {
+        display: none !important;
+        visibility: hidden !important;
+      }
+
+      @page {
+        margin: 8mm;
+        size: auto;
+      }
     }
   </style>
 </head>
@@ -280,10 +439,10 @@ foreach ($_SESSION['patients'] as $sp) {
       </a>
       <div class="leading-tight">
         <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-          <span>CareFlow</span>
-          <span class="text-xs bg-white/20 text-white font-mono px-2 py-0.5 rounded-full font-semibold">IHMS v2.4</span>
+          <span>AfyaSmart</span>
+        
         </h1>
-        <p class="text-xs text-blue-100 font-medium">Zetech University &bull; Sam Junior Matumbayi (DSE-02-0171/2025)</p>
+        <p class="text-xs text-blue-100 font-medium">Your Health, Our Priority</p>
       </div>
     </div>
 
@@ -312,32 +471,32 @@ foreach ($_SESSION['patients'] as $sp) {
         <div id="headerRoleDropdown" class="hidden absolute right-0 mt-2 w-72 bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 text-xs">
           <div class="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between">
             <span class="font-bold text-slate-900 block">Switch Clinical Role</span>
-            <span class="text-[10px] text-slate-500">1-click masquerade</span>
+            <span class="text-[10px] text-slate-500">1-click switch</span>
           </div>
           <div class="p-1 space-y-0.5">
             <a href="index.php?switch_role=admin&return_tab=<?= urlencode($activeTab) ?>" class="flex items-center gap-2.5 px-3 py-2 rounded-xl transition <?= $currentUser['role'] === 'admin' ? 'bg-blue-50 text-[#06559d] font-bold' : 'hover:bg-slate-50 text-slate-700' ?>">
-              <span class="w-7 h-7 rounded-lg bg-[#06559d] text-white flex items-center justify-center font-black text-[11px]">HO</span>
-              <div><span class="font-bold">Dr. Sajmat</span><span class="text-[10px] text-slate-400 block">Hospital Administrator</span></div>
+              <span class="w-7 h-7 rounded-lg bg-[#06559d] text-white flex items-center justify-center font-black text-[11px]">AD</span>
+              <div><span class="font-bold">admin</span><span class="text-[10px] text-slate-400 block">System Administrator</span></div>
             </a>
             <a href="index.php?switch_role=doctor&return_tab=<?= urlencode($activeTab) ?>" class="flex items-center gap-2.5 px-3 py-2 rounded-xl transition <?= $currentUser['role'] === 'doctor' ? 'bg-blue-50 text-[#06559d] font-bold' : 'hover:bg-slate-50 text-slate-700' ?>">
-              <span class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black text-[11px]">MK</span>
-              <div><span class="font-bold">Dr. Mercy Kamau, MD</span><span class="text-[10px] text-slate-400 block">Outpatient Doctor</span></div>
+              <span class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black text-[11px]">DR</span>
+              <div><span class="font-bold">doctor</span><span class="text-[10px] text-slate-400 block">Medical Doctor</span></div>
             </a>
             <a href="index.php?switch_role=nurse&return_tab=<?= urlencode($activeTab) ?>" class="flex items-center gap-2.5 px-3 py-2 rounded-xl transition <?= $currentUser['role'] === 'nurse' ? 'bg-blue-50 text-[#06559d] font-bold' : 'hover:bg-slate-50 text-slate-700' ?>">
-              <span class="w-7 h-7 rounded-lg bg-cyan-600 text-white flex items-center justify-center font-black text-[11px]">FW</span>
-              <div><span class="font-bold">Faith Wanjiku, BSN</span><span class="text-[10px] text-slate-400 block">Triage Nurse</span></div>
+              <span class="w-7 h-7 rounded-lg bg-cyan-600 text-white flex items-center justify-center font-black text-[11px]">RN</span>
+              <div><span class="font-bold">nurse</span><span class="text-[10px] text-slate-400 block">Triage Nurse</span></div>
             </a>
             <a href="index.php?switch_role=pharmacist&return_tab=<?= urlencode($activeTab) ?>" class="flex items-center gap-2.5 px-3 py-2 rounded-xl transition <?= $currentUser['role'] === 'pharmacist' ? 'bg-blue-50 text-[#06559d] font-bold' : 'hover:bg-slate-50 text-slate-700' ?>">
-              <span class="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center font-black text-[11px]">KO</span>
-              <div><span class="font-bold">Kevin Otieno, BPharm</span><span class="text-[10px] text-slate-400 block">Main Pharmacy</span></div>
+              <span class="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center font-black text-[11px]">PH</span>
+              <div><span class="font-bold">pharmacist</span><span class="text-[10px] text-slate-400 block">Pharmacy Officer</span></div>
             </a>
             <a href="index.php?switch_role=lab_tech&return_tab=<?= urlencode($activeTab) ?>" class="flex items-center gap-2.5 px-3 py-2 rounded-xl transition <?= $currentUser['role'] === 'lab_tech' ? 'bg-blue-50 text-[#06559d] font-bold' : 'hover:bg-slate-50 text-slate-700' ?>">
-              <span class="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center font-black text-[11px]">JM</span>
-              <div><span class="font-bold">Jane Muthoni, MLS</span><span class="text-[10px] text-slate-400 block">Pathology Lab</span></div>
+              <span class="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center font-black text-[11px]">LT</span>
+              <div><span class="font-bold">lab_tech</span><span class="text-[10px] text-slate-400 block">Laboratory Technician</span></div>
             </a>
             <a href="index.php?switch_role=accountant&return_tab=<?= urlencode($activeTab) ?>" class="flex items-center gap-2.5 px-3 py-2 rounded-xl transition <?= $currentUser['role'] === 'accountant' ? 'bg-blue-50 text-[#06559d] font-bold' : 'hover:bg-slate-50 text-slate-700' ?>">
-              <span class="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center font-black text-[11px]">PM</span>
-              <div><span class="font-bold">Peter Mwangi, CPA</span><span class="text-[10px] text-slate-400 block">Billing Cashier</span></div>
+              <span class="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center font-black text-[11px]">AC</span>
+              <div><span class="font-bold">accountant</span><span class="text-[10px] text-slate-400 block">Billing & Accounts</span></div>
             </a>
           </div>
         </div>
@@ -366,9 +525,9 @@ foreach ($_SESSION['patients'] as $sp) {
   <div class="bg-blue-900 text-blue-100 text-[11px] px-5 py-1.5 flex flex-wrap items-center justify-between border-b border-blue-800 no-print">
     <div class="flex items-center gap-2 font-mono">
       <span class="h-2 w-2 rounded-full <?= $isDbConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400' ?>"></span>
-      <span>: <?= $isDbConnected ?  : 'Self-Contained Session Storage Mode' ?></span>
+      <span> <?= $isDbConnected ? : 'Self-Contained Session Storage Mode' ?></span>
       <span class="text-blue-300 hidden sm:inline">|</span>
-      <span class="hidden sm:inline"></span>
+      <span class="hidden sm:inline"> </span>
     </div>
     <div class="font-mono text-[10px] text-blue-300">
       Address: http://localhost<?= htmlspecialchars($_SERVER['REQUEST_URI'] ?? '/HMS/') ?>
@@ -376,18 +535,18 @@ foreach ($_SESSION['patients'] as $sp) {
   </div>
 
   <!-- MAIN CONTAINER (PERMANENT LEFT SIDEBAR + RIGHT WORKSPACE) -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-row gap-6 items-start no-print">
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-row gap-6 items-start">
 
     <!-- PERMANENT LEFT SIDEBAR (Modules 1 to 10 - Always Locked on Left) -->
-    <aside class="w-64 min-w-[16rem] shrink-0 sticky top-4 <?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f] text-slate-200' : 'bg-[#eaf4fc] border-[#c6e1f8] text-slate-800' ?> border rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between">
+    <aside class="w-64 min-w-[16rem] shrink-0 sticky top-4 <?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f] text-slate-200' : 'bg-[#eaf4fc] border-[#c6e1f8] text-slate-800' ?> border rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between no-print">
       <div>
         <!-- Sidebar Title Header -->
         <div class="px-4 py-3 border-b <?= $isDarkBlue ? 'border-[#1b3b6f] bg-[#07162c]' : 'border-[#c6e1f8] bg-[#dbebfc]' ?> flex items-center justify-between">
           <span class="text-xs font-black uppercase tracking-wider <?= $isDarkBlue ? 'text-sky-300' : 'text-[#06559d]' ?> flex items-center gap-1.5">
             <i class="fa-solid fa-list-check"></i>
-            
+            <span>Hospital Operations</span>
           </span>
-          
+        
         </div>
 
         <!-- 1. Hospital Dashboard -->
@@ -412,7 +571,7 @@ foreach ($_SESSION['patients'] as $sp) {
           <span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold <?= $activeTab === 'triage' ? 'bg-white text-[#0260a8]' : ($isDarkBlue ? 'bg-slate-800 text-sky-300' : 'bg-blue-100 text-[#0260a8]') ?>">3</span>
           <i class="fa-solid fa-stethoscope text-sm w-4 text-center <?= $activeTab === 'triage' ? 'text-white' : 'text-[#0260a8]' ?>"></i>
           <span class="text-xs">Triage Desk</span>
-          <span class="ml-auto text-[10px] px-2 py-0.2 rounded-full <?= $activeTab === 'triage' ? 'bg-white text-[#0260a8]' : 'bg-[#0260a8] text-white' ?> font-bold">
+          <span class="ml-auto text-[10px] px-2 py-0.5 rounded-full <?= $activeTab === 'triage' ? 'bg-white text-[#0260a8]' : 'bg-[#0260a8] text-white' ?> font-bold">
             <?= count($_SESSION['patients']) ?>
           </span>
         </a>
@@ -473,17 +632,6 @@ foreach ($_SESSION['patients'] as $sp) {
           <span class="text-xs">System Settings</span>
         </a>
       </div>
-
-      <!-- Quick Switcher Footer -->
-      <div class="p-3 <?= $isDarkBlue ? 'bg-[#07162c] border-t border-[#1b3b6f]' : 'bg-white/60 border-t border-[#c6e1f8]' ?> text-[11px] space-y-1">
-        <span class="text-slate-400 font-bold block uppercase tracking-wider text-[10px]">Fast Role Switch:</span>
-        <div class="grid grid-cols-2 gap-1 text-[11px]">
-          <a href="index.php?switch_role=admin&return_tab=<?= urlencode($activeTab) ?>" class="p-1 bg-amber-100/70 hover:bg-amber-200 text-amber-900 rounded font-semibold text-center">Admin</a>
-          <a href="index.php?switch_role=doctor&return_tab=<?= urlencode($activeTab) ?>" class="p-1 bg-emerald-100/70 hover:bg-emerald-200 text-emerald-900 rounded font-semibold text-center">Doctor</a>
-          <a href="index.php?switch_role=nurse&return_tab=<?= urlencode($activeTab) ?>" class="p-1 bg-blue-100/70 hover:bg-blue-200 text-blue-900 rounded font-semibold text-center">Nurse</a>
-          <a href="index.php?switch_role=pharmacist&return_tab=<?= urlencode($activeTab) ?>" class="p-1 bg-purple-100/70 hover:bg-purple-200 text-purple-900 rounded font-semibold text-center">Pharmacy</a>
-        </div>
-      </div>
     </aside>
 
     <!-- RIGHT WORKSPACE (Fills all remaining space) -->
@@ -499,9 +647,22 @@ foreach ($_SESSION['patients'] as $sp) {
         </div>
       <?php endif; ?>
 
-      <!-- ACTIVE PATIENT CONTEXT STRIP -->
+      <!-- ACTIVE PATIENT CONTEXT STRIP WITH REAL-TIME TRANSITION -->
       <?php if ($activeTab !== 'settings' && $activeTab !== 'audit' && $activeTab !== 'dashboard'): ?>
-        <div class="mb-4 <?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white/95 border-[#c7e0f6]' ?> border rounded-xl p-3 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+        <?php
+          $curStatus = $selectedPatient['current_status'] ?? 'Registered';
+          $nextStageInfo = [
+            'Registered'       => ['to' => 'Triaged',          'tab' => 'triage',        'label' => 'Transition to Triage'],
+            'Triaged'          => ['to' => 'In_Consultation',  'tab' => 'consultation',  'label' => 'Transition to Doctor'],
+            'In_Consultation'  => ['to' => 'Lab_Pending',      'tab' => 'laboratory',    'label' => 'Transition to Lab'],
+            'Lab_Pending'      => ['to' => 'Pharmacy_Pending', 'tab' => 'pharmacy',      'label' => 'Transition to Pharmacy'],
+            'Pharmacy_Pending' => ['to' => 'Billing_Pending',  'tab' => 'billing',       'label' => 'Transition to Billing'],
+            'Billing_Pending'  => ['to' => 'Discharged',       'tab' => 'receipt',       'label' => 'Settle & Print Receipt'],
+            'Discharged'       => ['to' => 'Registered',       'tab' => 'registration',  'label' => 'Re-admit for Intake'],
+          ];
+          $nxt = $nextStageInfo[$curStatus] ?? $nextStageInfo['Registered'];
+        ?>
+        <div class="mb-4 <?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white/95 border-[#c7e0f6]' ?> border rounded-xl p-3 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs <?= $activeTab === 'receipt' ? 'no-print' : '' ?>">
           <div class="flex items-center gap-3">
             <div class="h-9 w-9 rounded-xl bg-[#06559d] text-white flex items-center justify-center font-black shadow-xs shrink-0">
               <?= substr($selectedPatient['full_name'] ?? 'P', 0, 1) ?>
@@ -510,11 +671,18 @@ foreach ($_SESSION['patients'] as $sp) {
               <div class="flex items-center gap-2">
                 <span class="font-bold <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?>"><?= htmlspecialchars($selectedPatient['full_name'] ?? 'Samuel Mwangi') ?></span>
                 <span class="font-mono text-[10px] <?= $isDarkBlue ? 'text-blue-300 bg-blue-950/80 border-blue-800' : 'text-blue-700 bg-blue-50 border-blue-200' ?> px-1.5 py-0.5 rounded border"><?= htmlspecialchars($selectedPatient['opd_number'] ?? 'OPD-2025-019') ?></span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800"><?= htmlspecialchars($selectedPatient['current_status'] ?? 'Active') ?></span>
               </div>
               <span class="text-[11px] <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?>"><?= htmlspecialchars($selectedPatient['gender'] ?? 'Male') ?> &bull; Phone: <?= htmlspecialchars($selectedPatient['phone'] ?? '+254 712 345 678') ?> &bull; Scheme: <strong class="<?= $isDarkBlue ? 'text-slate-300' : 'text-slate-700' ?>"><?= htmlspecialchars($selectedPatient['payment_scheme'] ?? 'Cash') ?></strong></span>
             </div>
           </div>
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Status: <?= htmlspecialchars($selectedPatient['current_status'] ?? 'Active') ?></span>
+
+          <div class="flex items-center gap-2">
+            <a href="index.php?action=transition_stage&patient_id=<?= $activePatientId ?>&to_stage=<?= urlencode($nxt['to']) ?>&return_tab=<?= urlencode($nxt['tab']) ?>" class="px-3.5 py-1.5 rounded-xl bg-[#06559d] hover:bg-[#00407a] text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+              <span><?= $nxt['label'] ?></span>
+              <i class="fa-solid fa-arrow-right text-[10px]"></i>
+            </a>
+          </div>
         </div>
       <?php endif; ?>
 
@@ -529,9 +697,7 @@ foreach ($_SESSION['patients'] as $sp) {
                 <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold <?= $isDarkBlue ? 'bg-[#0a2f5a] text-sky-200 border border-sky-400/40' : 'bg-[#0260a8] text-white' ?>">
                   <i class="fa-solid fa-crown mr-1"></i> Admin Command Centre
                 </span>
-                <span class="text-xs font-mono <?= $isDarkBlue ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-800' : 'text-emerald-700 bg-emerald-50 border border-emerald-200' ?> px-2 py-0.5 rounded font-semibold">
-                  MOH Code: <?= htmlspecialchars($_SESSION['facility_settings']['moh_code']) ?> &bull; <?= htmlspecialchars($_SESSION['facility_settings']['facility_level']) ?>
-                </span>
+               
               </div>
               <h2 class="text-xl sm:text-2xl font-bold <?= $isDarkBlue ? 'text-white' : 'text-[#0c477d]' ?> tracking-tight mt-1">
                 Hospital Executive Operations &amp; All Modules Hub
@@ -544,9 +710,7 @@ foreach ($_SESSION['patients'] as $sp) {
               <a href="index.php?tab=registration" class="bg-[#0069c8] hover:bg-[#0057a6] text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center gap-2">
                 <i class="fa-solid fa-user-plus"></i><span>Register New Patient</span>
               </a>
-              <a href="index.php?tab=settings" class="<?= $isDarkBlue ? 'bg-[#0c2340] hover:bg-[#123158] text-slate-200 border-[#1b3b6f]' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300' ?> border font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-2xs">
-                <i class="fa-solid fa-gear"></i><span>Settings</span>
-              </a>
+              
             </div>
           </div>
 
@@ -594,75 +758,181 @@ foreach ($_SESSION['patients'] as $sp) {
             </div>
           </div>
 
-          <!-- KPI Metric Cards -->
+          <!-- KPI Metric Cards (Automated Real-Time Dynamic Counting) -->
+          <?php
+            $autoTotalPatients = count($_SESSION['patients'] ?? []);
+            $autoTriageQueue = count(array_filter($_SESSION['patients'] ?? [], fn($p) => in_array($p['current_status'] ?? '', ['Registered', 'Triaged'])));
+            $autoConsultations = count(array_filter($_SESSION['patients'] ?? [], fn($p) => in_array($p['current_status'] ?? '', ['In_Consultation', 'Lab_Pending', 'Pharmacy_Pending', 'Billing_Pending', 'Discharged'])));
+            $autoLabSpecimens = count(array_filter($_SESSION['patients'] ?? [], fn($p) => in_array($p['current_status'] ?? '', ['Lab_Pending', 'Pharmacy_Pending', 'Billing_Pending', 'Discharged'])));
+            $autoPharmacyStock = !empty($_SESSION['pharmacy_inventory']) ? array_sum(array_column($_SESSION['pharmacy_inventory'], 'stock_qty')) : 1165;
+            $autoDailyRevenue = !empty($_SESSION['revenue_ledger']) ? array_sum(array_column($_SESSION['revenue_ledger'], 'amount')) : 9750.00;
+          ?>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
               <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Total Patients</span>
-              <strong class="text-2xl font-black <?= $isDarkBlue ? 'text-sky-400' : 'text-[#06559d]' ?> mt-1 block"><?= count($_SESSION['patients']) ?></strong>
+              <strong class="text-2xl font-black <?= $isDarkBlue ? 'text-sky-400' : 'text-[#06559d]' ?> mt-1 block"><?= $autoTotalPatients ?></strong>
               <span class="text-[10px] text-emerald-400 font-bold">&check; In Master Index</span>
             </div>
             <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
               <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Triage Queue</span>
-              <strong class="text-2xl font-black text-emerald-400 mt-1 block">3</strong>
+              <strong class="text-2xl font-black text-emerald-400 mt-1 block"><?= $autoTriageQueue ?></strong>
               <span class="text-[10px] <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?> font-medium">Bio-signals Ready</span>
             </div>
             <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
               <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Consultations</span>
-              <strong class="text-2xl font-black text-sky-400 mt-1 block">12</strong>
-              <span class="text-[10px] <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?> font-medium">Dr. Mercy Kamau, MD</span>
+              <strong class="text-2xl font-black text-sky-400 mt-1 block"><?= $autoConsultations ?></strong>
+              <span class="text-[10px] <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?> font-medium">Doctor on Duty</span>
             </div>
             <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
               <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Lab Specimen</span>
-              <strong class="text-2xl font-black text-purple-400 mt-1 block">8</strong>
+              <strong class="text-2xl font-black text-purple-400 mt-1 block"><?= $autoLabSpecimens ?></strong>
               <span class="text-[10px] text-purple-300 font-bold">mRDT &bull; CBC</span>
             </div>
             <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
               <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Pharmacy Stock</span>
-              <strong class="text-2xl font-black text-amber-400 mt-1 block">42</strong>
+              <strong class="text-2xl font-black text-amber-400 mt-1 block"><?= number_format($autoPharmacyStock) ?></strong>
               <span class="text-[10px] text-emerald-400 font-bold">Formulary Active</span>
             </div>
             <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
               <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Daily Revenue</span>
-              <strong class="text-xl font-black text-emerald-400 mt-1 block font-mono">KES 142.5k</strong>
+              <strong class="text-xl font-black text-emerald-400 mt-1 block font-mono">KES <?= number_format($autoDailyRevenue, 2) ?></strong>
               <span class="text-[10px] text-sky-300 font-bold">M-Pesa + Cash</span>
             </div>
           </div>
 
-          <!-- Clinical Workflow Pipeline -->
-          <div class="bg-gradient-to-r <?= $isDarkBlue ? 'from-[#061e3e] via-[#0b2b52] to-[#04152d] border border-[#1b3b6f]' : 'from-[#0260a8] to-[#0c477d]' ?> text-white p-4 rounded-2xl shadow-sm space-y-2">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-bold uppercase tracking-wider text-blue-100 flex items-center gap-1.5">
-                <i class="fa-solid fa-arrows-split-up-and-left"></i> Normalized Clinical Workflow Pipeline
+          <!-- NORMALIZED CLINICAL WORKFLOW PIPELINE & REAL-TIME DEPARTMENT TRANSITIONS -->
+          <?php
+            $stages = [
+              'Registered'       => ['title' => 'Registration',   'step' => 1, 'tab' => 'registration', 'icon' => 'fa-clipboard-list', 'color' => 'blue',    'next' => 'Triaged',          'next_tab' => 'triage',        'next_lbl' => 'Send to Triage'],
+              'Triaged'          => ['title' => 'Triage Desk',    'step' => 2, 'tab' => 'triage',       'icon' => 'fa-stethoscope',    'color' => 'rose',    'next' => 'In_Consultation',  'next_tab' => 'consultation',  'next_lbl' => 'Send to Doctor'],
+              'In_Consultation'  => ['title' => 'Doctor Consult', 'step' => 3, 'tab' => 'consultation', 'icon' => 'fa-user-doctor',   'color' => 'indigo',  'next' => 'Lab_Pending',      'next_tab' => 'laboratory',    'next_lbl' => 'Send to Lab'],
+              'Lab_Pending'      => ['title' => 'Laboratory',     'step' => 4, 'tab' => 'laboratory',   'icon' => 'fa-flask',          'color' => 'purple',  'next' => 'Pharmacy_Pending', 'next_tab' => 'pharmacy',      'next_lbl' => 'Send to Pharmacy'],
+              'Pharmacy_Pending' => ['title' => 'Pharmacy',       'step' => 5, 'tab' => 'pharmacy',     'icon' => 'fa-pills',          'color' => 'amber',   'next' => 'Billing_Pending',  'next_tab' => 'billing',       'next_lbl' => 'Send to Billing'],
+              'Billing_Pending'  => ['title' => 'Billing & POS',  'step' => 6, 'tab' => 'billing',      'icon' => 'fa-receipt',        'color' => 'emerald', 'next' => 'Discharged',       'next_tab' => 'receipt',       'next_lbl' => 'Settle & Receipt'],
+            ];
+          ?>
+          <div class="bg-gradient-to-r <?= $isDarkBlue ? 'from-[#061e3e] via-[#0b2b52] to-[#04152d] border border-[#1b3b6f]' : 'from-[#0260a8] to-[#0c477d]' ?> text-white p-5 rounded-2xl shadow-sm space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+              <div>
+                <span class="font-bold uppercase tracking-wider text-blue-100 flex items-center gap-2 text-xs">
+                  <i class="fa-solid fa-arrows-split-up-and-left text-sky-300"></i> Normalized Clinical Workflow Pipeline
+                </span>
+                <p class="text-[11px] text-blue-200 mt-0.5">Real-time multi-department patient movement across all 6 stages of care delivery.</p>
+              </div>
+              <span class="text-[10px] font-mono bg-white/10 px-2.5 py-1 rounded-full text-blue-100 font-bold border border-white/15">
+                Active Queue: <?= count($_SESSION['patients']) ?> Patients
               </span>
-              <span class="text-blue-200 text-[11px]">Real-Time Department Transition</span>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs pt-1">
-              <a href="index.php?tab=registration" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/15 text-center flex flex-col items-center">
-                <span class="text-[10px] font-mono text-blue-200">Stage 1</span>
-                <span class="font-bold mt-0.5">Registration</span>
-              </a>
-              <a href="index.php?tab=triage&patient_id=<?= $activePatientId ?>" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/15 text-center flex flex-col items-center">
-                <span class="text-[10px] font-mono text-emerald-200">Stage 2</span>
-                <span class="font-bold mt-0.5">Triage Desk</span>
-              </a>
-              <a href="index.php?tab=consultation&patient_id=<?= $activePatientId ?>" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/15 text-center flex flex-col items-center">
-                <span class="text-[10px] font-mono text-blue-200">Stage 3</span>
-                <span class="font-bold mt-0.5">Doctor Consult</span>
-              </a>
-              <a href="index.php?tab=laboratory&patient_id=<?= $activePatientId ?>" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/15 text-center flex flex-col items-center">
-                <span class="text-[10px] font-mono text-purple-200">Stage 4</span>
-                <span class="font-bold mt-0.5">Laboratory</span>
-              </a>
-              <a href="index.php?tab=pharmacy&patient_id=<?= $activePatientId ?>" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/15 text-center flex flex-col items-center">
-                <span class="text-[10px] font-mono text-amber-200">Stage 5</span>
-                <span class="font-bold mt-0.5">Pharmacy</span>
-              </a>
-              <a href="index.php?tab=billing&patient_id=<?= $activePatientId ?>" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition border border-white/15 text-center flex flex-col items-center">
-                <span class="text-[10px] font-mono text-emerald-200">Stage 6</span>
-                <span class="font-bold mt-0.5">Billing &amp; POS</span>
-              </a>
+
+            <!-- Pipeline 6-Step Visual Bar -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
+              <?php foreach ($stages as $stageKey => $meta): ?>
+                <?php
+                  $countInStage = 0;
+                  foreach ($_SESSION['patients'] as $p) {
+                    if (($p['current_status'] ?? '') === $stageKey) {
+                      $countInStage++;
+                    }
+                  }
+                  $isStageActive = ($selectedPatient && ($selectedPatient['current_status'] ?? '') === $stageKey);
+                ?>
+                <a href="index.php?tab=<?= $meta['tab'] ?>&patient_id=<?= $activePatientId ?>" class="p-3 rounded-xl transition border text-left flex flex-col justify-between group <?= $isStageActive ? 'bg-white text-slate-900 border-white shadow-lg ring-2 ring-emerald-400' : 'bg-white/10 hover:bg-white/20 text-white border-white/15' ?>">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded <?= $isStageActive ? 'bg-[#06559d] text-white' : 'bg-white/20 text-blue-100' ?>">Step <?= $meta['step'] ?></span>
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full <?= $countInStage > 0 ? ($isStageActive ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-400 text-slate-900') : ($isStageActive ? 'bg-slate-100 text-slate-500' : 'bg-white/10 text-blue-200') ?>">
+                      <?= $countInStage ?>
+                    </span>
+                  </div>
+                  <div class="mt-2">
+                    <i class="fa-solid <?= $meta['icon'] ?> text-sm mb-1 block <?= $isStageActive ? 'text-[#06559d]' : 'text-sky-300' ?>"></i>
+                    <strong class="text-xs block leading-tight <?= $isStageActive ? 'text-slate-900' : 'text-white' ?>"><?= $meta['title'] ?></strong>
+                    <span class="text-[10px] <?= $isStageActive ? 'text-slate-500' : 'text-blue-200' ?> mt-0.5 block"><?= $stageKey ?></span>
+                  </div>
+                </a>
+              <?php endforeach; ?>
             </div>
           </div>
+
+          <!-- Active Patients In Lifecycle Table -->
+          <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> rounded-2xl p-5 border shadow-2xs space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b <?= $isDarkBlue ? 'border-[#1b3b6f]' : 'border-slate-100' ?> pb-3">
+              <div>
+                <h3 class="font-bold text-sm <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?> flex items-center gap-2">
+                  <i class="fa-solid fa-users text-[#06559d]"></i> Live Patient Flow Through Care Lifecycle
+                </h3>
+                <p class="text-xs <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?>">Real-time queue tracking current clinic location and immediate departmental action routing.</p>
+              </div>
+              <a href="index.php?tab=registration" class="px-3 py-1.5 bg-[#06559d] hover:bg-[#05437d] text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs">
+                <i class="fa-solid fa-plus text-[10px]"></i><span>Admit Patient</span>
+              </a>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="<?= $isDarkBlue ? 'bg-[#07162c] text-slate-300' : 'bg-slate-50 text-slate-600' ?> border-b <?= $isDarkBlue ? 'border-[#1b3b6f]' : 'border-slate-200' ?>">
+                    <th class="p-2.5 font-bold">OPD #</th>
+                    <th class="p-2.5 font-bold">Patient Name</th>
+                    <th class="p-2.5 font-bold">Scheme</th>
+                    <th class="p-2.5 font-bold">Current Department</th>
+                    <th class="p-2.5 font-bold">Status Badge</th>
+                    <th class="p-2.5 font-bold text-right">Direct Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y <?= $isDarkBlue ? 'divide-[#1b3b6f] text-slate-200' : 'divide-slate-100 text-slate-700' ?>">
+                  <?php foreach ($_SESSION['patients'] as $p): ?>
+                    <?php
+                      $status = $p['current_status'] ?? 'Registered';
+                      $statusStyles = [
+                        'Registered'       => ['badge' => 'bg-blue-100 text-blue-800',       'next_label' => 'Route to Triage',      'next_tab' => 'triage',       'next_stage' => 'Triaged'],
+                        'Triaged'          => ['badge' => 'bg-rose-100 text-rose-800',       'next_label' => 'Route to Doctor',      'next_tab' => 'consultation', 'next_stage' => 'In_Consultation'],
+                        'In_Consultation'  => ['badge' => 'bg-indigo-100 text-indigo-800',   'next_label' => 'Send to Lab',          'next_tab' => 'laboratory',   'next_stage' => 'Lab_Pending'],
+                        'Lab_Pending'      => ['badge' => 'bg-purple-100 text-purple-800',   'next_label' => 'Send to Pharmacy',     'next_tab' => 'pharmacy',     'next_stage' => 'Pharmacy_Pending'],
+                        'Pharmacy_Pending' => ['badge' => 'bg-amber-100 text-amber-800',     'next_label' => 'Route to Billing',     'next_tab' => 'billing',      'next_stage' => 'Billing_Pending'],
+                        'Billing_Pending'  => ['badge' => 'bg-emerald-100 text-emerald-800', 'next_label' => 'Issue Receipt',       'next_tab' => 'receipt',      'next_stage' => 'Discharged'],
+                        'Discharged'       => ['badge' => 'bg-slate-200 text-slate-800',     'next_label' => 'View Receipt',         'next_tab' => 'receipt',      'next_stage' => 'Discharged'],
+                      ];
+                      $st = $statusStyles[$status] ?? $statusStyles['Registered'];
+                      $isSelected = ($p['patient_id'] === $activePatientId);
+                    ?>
+                    <tr class="<?= $isSelected ? ($isDarkBlue ? 'bg-blue-950/40' : 'bg-blue-50/70 font-semibold') : ($isDarkBlue ? 'hover:bg-[#123158]' : 'hover:bg-slate-50') ?> transition">
+                      <td class="p-2.5 font-mono text-[11px] <?= $isDarkBlue ? 'text-sky-300' : 'text-[#06559d]' ?>"><?= htmlspecialchars($p['opd_number']) ?></td>
+                      <td class="p-2.5 font-bold <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?>">
+                        <a href="index.php?tab=<?= $st['next_tab'] ?>&patient_id=<?= $p['patient_id'] ?>" class="hover:underline flex items-center gap-1.5">
+                          <span><?= htmlspecialchars($p['full_name']) ?></span>
+                          <?php if ($isSelected): ?>
+                            <span class="text-[9px] px-1.5 py-0.2 bg-[#06559d] text-white rounded">Active</span>
+                          <?php endif; ?>
+                        </a>
+                      </td>
+                      <td class="p-2.5 text-[11px]"><?= htmlspecialchars($p['payment_scheme']) ?></td>
+                      <td class="p-2.5">
+                        <span class="capitalize"><?= str_replace('_', ' ', $status) ?></span>
+                      </td>
+                      <td class="p-2.5">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?= $st['badge'] ?>">
+                          <?= htmlspecialchars($status) ?>
+                        </span>
+                      </td>
+                      <td class="p-2.5 text-right">
+                        <div class="inline-flex items-center gap-1">
+                          <a href="index.php?tab=<?= $st['next_tab'] ?>&patient_id=<?= $p['patient_id'] ?>" class="px-2.5 py-1 rounded-lg bg-[#06559d] hover:bg-[#00407a] text-white text-[11px] font-bold transition">
+                            <?= $st['next_label'] ?>
+                          </a>
+                          <?php if ($status !== 'Discharged'): ?>
+                            <a href="index.php?action=transition_stage&patient_id=<?= $p['patient_id'] ?>&to_stage=<?= urlencode($st['next_stage']) ?>&return_tab=dashboard" title="Fast 1-click stage advance" class="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition">
+                              &rarr;
+                            </a>
+                          <?php endif; ?>
+                        </div>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       <?php endif; ?>
 
@@ -680,17 +950,18 @@ foreach ($_SESSION['patients'] as $sp) {
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Full Patient Name *</label>
-                <input type="text" name="full_name" required placeholder="e.g. Samuel Mwangi" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" name="full_name" required placeholder="  " class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Phone Number *</label>
-                <input type="text" name="phone" required placeholder="+254 712 345 678" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" name="phone" required placeholder="  " class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Gender *</label>
                 <select name="gender" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
               <div>
@@ -773,9 +1044,16 @@ foreach ($_SESSION['patients'] as $sp) {
               <label class="block font-bold text-slate-700 mb-1">Prescription (Formulary)</label>
               <textarea name="prescription" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">Coartem 20/120mg Tabs 1x4 3/7, Paracetamol 500mg 1x3 3/7</textarea>
             </div>
-            <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition">
-              Sign Prescription &amp; Send to Pharmacy &rarr;
-            </button>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <button type="submit" name="route_to" value="lab" class="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-flask"></i>
+                <span>Order STAT Lab &amp; Send to Lab &rarr;</span>
+              </button>
+              <button type="submit" name="route_to" value="pharmacy" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-pills"></i>
+                <span>Sign Rx &amp; Send to Pharmacy &rarr;</span>
+              </button>
+            </div>
           </form>
         </div>
       <?php endif; ?>
@@ -793,9 +1071,14 @@ foreach ($_SESSION['patients'] as $sp) {
             <div class="flex justify-between"><span>Rapid Malaria Test (mRDT):</span><strong class="text-rose-600">POSITIVE (Plasmodium falciparum)</strong></div>
             <div class="flex justify-between"><span>Complete Blood Count (CBC):</span><strong>Hemoglobin: 13.8 g/dL (Normal)</strong></div>
           </div>
-          <a href="index.php?tab=pharmacy&patient_id=<?= $activePatientId ?>" class="block text-center py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition">
-            Validate Lab Results &amp; Forward to Pharmacy &rarr;
-          </a>
+          <form method="POST" action="index.php?tab=laboratory&patient_id=<?= $activePatientId ?>">
+            <input type="hidden" name="action" value="complete_lab">
+            <input type="hidden" name="patient_id" value="<?= $activePatientId ?>">
+            <button type="submit" class="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-circle-check"></i>
+              <span>Validate Lab Results &amp; Forward to Pharmacy &rarr;</span>
+            </button>
+          </form>
         </div>
       <?php endif; ?>
 
@@ -868,9 +1151,18 @@ foreach ($_SESSION['patients'] as $sp) {
             <p class="font-bold text-emerald-700">&check; PAID &amp; CLEARED</p>
             <p>AfyaSmart IHMS</p>
           </div>
-          <div class="no-print pt-2 flex gap-2">
-            <button onclick="window.print();" class="flex-1 py-2 bg-[#06559d] text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-print mr-1"></i> Print Receipt</button>
-            <a href="index.php?tab=dashboard" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">Back to Dashboard</a>
+          <div class="no-print pt-3 flex flex-wrap gap-2">
+            <button type="button" onclick="printReceipt()" class="flex-1 min-w-[130px] py-2.5 bg-[#06559d] hover:bg-[#05437d] text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <i class="fa-solid fa-print"></i>
+              <span>Print Receipt</span>
+            </button>
+            <button type="button" onclick="printInNewWindow()" class="py-2.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer" title="Open in separate printable window (Bypasses browser iframe restrictions)">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i>
+              <span>Clean Print Tab</span>
+            </button>
+            <a href="index.php?tab=dashboard" class="py-2.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition flex items-center justify-center">
+              Dashboard
+            </a>
           </div>
         </div>
       <?php endif; ?>
@@ -899,9 +1191,9 @@ foreach ($_SESSION['patients'] as $sp) {
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
-                <tr><td class="p-2.5"><?= date('H:i:s') ?></td><td class="p-2.5 font-bold">Dr. Sajmat</td><td class="p-2.5 text-blue-700">admin</td><td class="p-2.5 text-emerald-700 font-bold">SESSION_AUTH</td><td class="p-2.5">Command Centre</td></tr>
-                <tr><td class="p-2.5"><?= date('H:i:s', time() - 120) ?></td><td class="p-2.5 font-bold"> BSN</td><td class="p-2.5 text-cyan-700">nurse</td><td class="p-2.5 text-blue-700 font-bold">RECORD_VITALS</td><td class="p-2.5">Triage Desk</td></tr>
-                <tr><td class="p-2.5"><?= date('H:i:s', time() - 360) ?></td><td class="p-2.5 font-bold"> MD</td><td class="p-2.5 text-emerald-700">doctor</td><td class="p-2.5 text-purple-700 font-bold">DIAGNOSIS_SIGN</td><td class="p-2.5">Consultation</td></tr>
+                <tr><td class="p-2.5"><?= date('H:i:s') ?></td><td class="p-2.5 font-bold">admin</td><td class="p-2.5 text-blue-700">admin</td><td class="p-2.5 text-emerald-700 font-bold">SESSION_AUTH</td><td class="p-2.5">Command Centre</td></tr>
+                <tr><td class="p-2.5"><?= date('H:i:s', time() - 120) ?></td><td class="p-2.5 font-bold">nurse</td><td class="p-2.5 text-cyan-700">nurse</td><td class="p-2.5 text-blue-700 font-bold">RECORD_VITALS</td><td class="p-2.5">Triage Desk</td></tr>
+                <tr><td class="p-2.5"><?= date('H:i:s', time() - 360) ?></td><td class="p-2.5 font-bold">doctor</td><td class="p-2.5 text-emerald-700">doctor</td><td class="p-2.5 text-purple-700 font-bold">DIAGNOSIS_SIGN</td><td class="p-2.5">Consultation</td></tr>
               </tbody>
             </table>
           </div>
@@ -952,8 +1244,72 @@ foreach ($_SESSION['patients'] as $sp) {
 
   <!-- FOOTER -->
   <footer class="bg-slate-900 text-slate-400 py-3 px-5 text-center text-xs border-t border-slate-800 no-print mt-auto">
-    <span>AfyaSmart IHMS</span>
+    <span>AfyaSmart IHMS &bull; Your Health, Our Priority</span>
   </footer>
+
+  <!-- MEDICAL PRINT ENGINE & CLIENT SCRIPTS -->
+  <script>
+    function printReceipt() {
+      window.focus();
+      window.print();
+    }
+
+    function printInNewWindow() {
+      var receiptEl = document.getElementById('printableReceipt');
+      if (!receiptEl) {
+        window.focus();
+        window.print();
+        return;
+      }
+
+      var clone = receiptEl.cloneNode(true);
+      var noPrintEls = clone.querySelectorAll('.no-print');
+      for (var i = 0; i < noPrintEls.length; i++) {
+        noPrintEls[i].remove();
+      }
+
+      var win = window.open('', '_blank', 'width=460,height=680');
+      if (!win) {
+        window.focus();
+        window.print();
+        return;
+      }
+
+      var doc = win.document;
+      doc.open();
+      doc.write('<!DOCTYPE html><html><head><title>AfyaSmart Medical Receipt</title>');
+      doc.write('<style>');
+      doc.write('body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #fff; color: #1e293b; padding: 24px; margin: 0; }');
+      doc.write('.font-mono { font-family: monospace; }');
+      doc.write('.receipt-card { max-width: 380px; margin: 0 auto; border: 1px dashed #64748b; padding: 20px; border-radius: 8px; font-size: 12px; }');
+      doc.write('.text-center { text-align: center; }');
+      doc.write('.uppercase { text-transform: uppercase; }');
+      doc.write('.font-bold { font-weight: bold; }');
+      doc.write('.font-black { font-weight: 900; }');
+      doc.write('.flex { display: flex; }');
+      doc.write('.justify-between { justify-content: space-between; }');
+      doc.write('.border-b { border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px; margin-bottom: 8px; }');
+      doc.write('.border-t { border-top: 1px dashed #cbd5e1; padding-top: 8px; margin-top: 8px; }');
+      doc.write('.space-y-1 > * + * { margin-top: 4px; }');
+      doc.write('.space-y-3 > * + * { margin-top: 12px; }');
+      doc.write('.text-emerald-700 { color: #047857; }');
+      doc.write('.text-slate-400 { color: #94a3b8; }');
+      doc.write('.text-slate-500 { color: #64748b; }');
+      doc.write('.text-slate-800 { color: #1e293b; }');
+      doc.write('.bg-slate-100 { background: #f1f5f9; }');
+      doc.write('.p-1 { padding: 4px; }');
+      doc.write('.rounded { border-radius: 4px; }');
+      doc.write('@media print { body { padding: 0; } .receipt-card { border: none; max-width: 100%; padding: 0; } }');
+      doc.write('</style></head><body>');
+      doc.write('<div class="receipt-card">' + clone.innerHTML + '</div>');
+      doc.write('</body></html>');
+      doc.close();
+      win.focus();
+      setTimeout(function() {
+        win.print();
+      }, 300);
+    }
+  </script>
 
 </body>
 </html>

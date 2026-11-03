@@ -209,11 +209,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         <i class="fa-solid fa-hospital text-lg"></i>
       </div>
       <div>
-        <h1 class="text-base font-bold tracking-tight">CareFlow IHMS</h1>
+        <h1 class="text-base font-bold tracking-tight">AfyaSmart IHMS</h1>
         <p class="text-[10px] text-blue-200">Your Health, Our Priority</p>
       </div>
     </div>
-    <span class="text-xs bg-white/10 px-2.5 py-1 rounded-lg text-blue-100 font-mono">MOH Code: 14892</span>
+    
   </header>
 
   <!-- AUTHENTICATION CARD -->
@@ -230,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
           Sign In
         </a>
         <a href="login.php?mode=register" class="py-2 rounded-lg transition <?= $activeAuthTab === 'register' ? 'bg-[#0069c8] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' ?>">
-          Register Staff
+          Register Account
         </a>
       </div>
 
@@ -256,7 +256,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
           <div>
             <label class="block font-bold text-slate-700 mb-1">Username / Staff ID:</label>
-            <input type="text" name="username" required placeholder="e.g. admin or dr_kamau" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-[#0069c8] font-medium" />
+            <input type="text" name="username" required placeholder=" " class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-[#0069c8] font-medium" />
           </div>
 
           <div>
@@ -275,31 +275,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
           </button>
         </form>
 
-        <!-- Quick Demo Accounts -->
-        <div class="pt-3 border-t border-slate-100 text-[11px] text-slate-500 space-y-1.5">
-          <span class="font-bold text-slate-700 block uppercase tracking-wider text-[10px]">Pre-seeded Demo Accounts:</span>
-          <div class="grid grid-cols-2 gap-1.5 font-mono text-[10px]">
-            <div class="p-1.5 bg-slate-50 rounded border border-slate-200"><strong>admin</strong> / admin123</div>
-            <div class="p-1.5 bg-slate-50 rounded border border-slate-200"><strong>dr</strong> / doc123</div>
-            <div class="p-1.5 bg-slate-50 rounded border border-slate-200"><strong>nurse</strong> / nurse123</div>
-            <div class="p-1.5 bg-slate-50 rounded border border-slate-200"><strong>pharm</strong> / pharm123</div>
-          </div>
-        </div>
+        
 
-      <!-- 2. REGISTER STAFF FORM -->
+      <!--  REGISTER STAFF FORM -->
       <?php else: ?>
         <form action="login.php?mode=register" method="POST" class="space-y-3 text-xs">
           <input type="hidden" name="action" value="staff_register">
 
           <div>
             <label class="block font-bold text-slate-700 mb-1">Full Name &amp; Title:</label>
-            <input type="text" name="full_name" required placeholder="e.g. Dr. John Doe, MD" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-[#0069c8]" />
+            <input type="text" name="full_name" required placeholder=" " class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-[#0069c8]" />
           </div>
 
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="block font-bold text-slate-700 mb-1">Username:</label>
-              <input type="text" name="username" required placeholder="e.g. jdoe" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-[#0069c8]" />
+              <input type="text" name="username" required placeholder=" " class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-[#0069c8]" />
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">Role:</label>
@@ -337,7 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
           <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition text-xs shadow-md flex items-center justify-center gap-2 mt-2">
             <i class="fa-solid fa-user-plus"></i>
-            <span>Register Staff Account</span>
+            <span>Register Account</span>
           </button>
         </form>
       <?php endif; ?>
