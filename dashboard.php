@@ -144,7 +144,7 @@ if ($totalPatients === 0) {
       <div class="p-3 bg-[#d9ecfa] border-b border-[#c6e1f8] text-xs">
         <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Active Patient:</span>
         <div class="font-bold text-slate-900 mt-0.5 truncate">Matty Jeff (OPD-2025-0212)</div>
-        <div class="text-[11px] text-slate-600 font-mono">Female, 31y | Status: Discharged</div>
+        <div class="text-[11px] text-slate-600 font-mono">Male, 31y | Status: Discharged</div>
       </div>
 
       <!-- Navigation Links -->

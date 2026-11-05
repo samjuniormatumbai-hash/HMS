@@ -132,7 +132,7 @@ $userInitials = $roleInitialsMap[$currentUser['role']] ?? strtoupper(substr($cur
 if (!isset($_SESSION['facility_settings']) || empty($_SESSION['facility_settings']['hospital_name']) || strpos($_SESSION['facility_settings']['hospital_name'], 'CareFlow') !== false) {
     $_SESSION['facility_settings'] = [
         'hospital_name'    => 'AfyaSmart Integrated Health Centre',
-        'moh_code'         => '14892',
+        'moh_code'         => '2004',
         'facility_level'   => 'Level 4 Hospital / Sub-County Referral',
         'consultation_fee' => 500.00,
         'triage_high_bp'   => 140,
@@ -530,7 +530,7 @@ foreach ($_SESSION['patients'] as $sp) {
       <span class="hidden sm:inline"> </span>
     </div>
     <div class="font-mono text-[10px] text-blue-300">
-      Address: http://localhost<?= htmlspecialchars($_SERVER['REQUEST_URI'] ?? '/HMS/') ?>
+     
     </div>
   </div>
 
@@ -811,6 +811,7 @@ foreach ($_SESSION['patients'] as $sp) {
               'Billing_Pending'  => ['title' => 'Billing & POS',  'step' => 6, 'tab' => 'billing',      'icon' => 'fa-receipt',        'color' => 'emerald', 'next' => 'Discharged',       'next_tab' => 'receipt',       'next_lbl' => 'Settle & Receipt'],
             ];
           ?>
+         
           <div class="bg-gradient-to-r <?= $isDarkBlue ? 'from-[#061e3e] via-[#0b2b52] to-[#04152d] border border-[#1b3b6f]' : 'from-[#0260a8] to-[#0c477d]' ?> text-white p-5 rounded-2xl shadow-sm space-y-4">
             <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
               <div>
@@ -838,10 +839,7 @@ foreach ($_SESSION['patients'] as $sp) {
                 ?>
                 <a href="index.php?tab=<?= $meta['tab'] ?>&patient_id=<?= $activePatientId ?>" class="p-3 rounded-xl transition border text-left flex flex-col justify-between group <?= $isStageActive ? 'bg-white text-slate-900 border-white shadow-lg ring-2 ring-emerald-400' : 'bg-white/10 hover:bg-white/20 text-white border-white/15' ?>">
                   <div class="flex items-center justify-between">
-                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded <?= $isStageActive ? 'bg-[#06559d] text-white' : 'bg-white/20 text-blue-100' ?>">Step <?= $meta['step'] ?></span>
-                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full <?= $countInStage > 0 ? ($isStageActive ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-400 text-slate-900') : ($isStageActive ? 'bg-slate-100 text-slate-500' : 'bg-white/10 text-blue-200') ?>">
-                      <?= $countInStage ?>
-                    </span>
+                   
                   </div>
                   <div class="mt-2">
                     <i class="fa-solid <?= $meta['icon'] ?> text-sm mb-1 block <?= $isStageActive ? 'text-[#06559d]' : 'text-sky-300' ?>"></i>
