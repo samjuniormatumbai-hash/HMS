@@ -42,7 +42,8 @@ try {
             gender ENUM('Male','Female','Other') NOT NULL,
             phone VARCHAR(20) NOT NULL,
             payment_scheme ENUM('Cash','SHA','Private Insurance') DEFAULT 'Cash',
-            current_status ENUM('Registered','Triaged','In_Consultation','Lab_Pending','Pharmacy_Pending','Billing_Pending','Discharged') DEFAULT 'Registered',
+            current_status ENUM('Registered','Triaged','In_Consultation','Lab_Pending',
+            'Pharmacy_Pending','Billing_Pending','Discharged') DEFAULT 'Registered',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB;
 
@@ -89,7 +90,8 @@ if (isset($_GET['switch_role'])) {
 
 // Active Module Tab (Default: 1. Dashboard)
 $activeTab = safe_str($_GET['tab'] ?? null, 'dashboard');
-$allowedTabs = ['dashboard', 'pipeline', 'registration', 'triage', 'consultation', 'laboratory', 'pharmacy', 'billing', 'receipt', 'audit', 'settings'];
+$allowedTabs = ['dashboard', 'pipeline', 'registration', 'triage', 'consultation', 
+'laboratory', 'pharmacy', 'billing', 'receipt', 'audit', 'settings'];
 if (!in_array($activeTab, $allowedTabs)) {
     $activeTab = 'dashboard';
 }
