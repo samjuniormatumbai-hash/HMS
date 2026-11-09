@@ -249,29 +249,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         </div>
       <?php endif; ?>
 
-      <!-- 1. SIGN IN FORM -->
+      <!--  SIGN IN FORM -->
       <?php if ($activeAuthTab === 'login'): ?>
         <form action="login.php?mode=login" method="POST" class="space-y-4 text-xs">
           <input type="hidden" name="action" value="staff_login">
 
           <div>
-            <label class="block font-bold text-slate-700 mb-1">Username / Staff ID:</label>
-            <input type="text" name="username" required placeholder=" " class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-[#0069c8] font-medium" />
+            <label class="block font-bold text-slate-700 mb-1">Username:</label>
+            <input type="text" name="username" required placeholder=" " class="w-full bg-slate-50 border
+             border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-[#0069c8] font-medium" />
           </div>
 
           <div>
             <label class="block font-bold text-slate-700 mb-1">Password:</label>
             <div class="relative">
-              <input type="password" id="loginPass" name="password" required placeholder="Enter password" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 pr-10 outline-none focus:border-[#0069c8]" />
-              <button type="button" onclick="togglePass('loginPass', 'eyeIcon1')" class="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-800">
+              <input type="password" id="loginPass" name="password" required placeholder="Enter password" 
+              class="w-full bg-slate-50 border border-slate-300 rounded-lg 
+              px-3 py-2 pr-10 outline-none focus:border-[#0069c8]" />
+              <button type="button" onclick="togglePass('loginPass', 'eyeIcon1')" 
+              class="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-800">
                 <i id="eyeIcon1" class="fa-solid fa-eye"></i>
               </button>
             </div>
           </div>
 
-          <button type="submit" class="w-full py-2.5 bg-[#0069c8] hover:bg-[#0057a6] text-white font-bold rounded-xl transition text-xs shadow-md flex items-center justify-center gap-2">
+          <button type="submit" class="w-full py-2.5 bg-[#0069c8] hover:bg-[#0057a6]
+           text-white font-bold rounded-xl transition text-xs shadow-md 
+           flex items-center justify-center gap-2">
             <i class="fa-solid fa-right-to-bracket"></i>
-            <span>Authenticate &amp; Open Workspace</span>
+            <span>login</span>
           </button>
         </form>
 

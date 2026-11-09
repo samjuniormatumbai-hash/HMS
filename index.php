@@ -359,7 +359,7 @@ foreach ($_SESSION['patients'] as $sp) {
 
     /* Production-Grade Medical Print Engine */
     @media print {
-      /* 1. Global Reset - remove body scroll/flex restrictions */
+      /* Global Reset - remove body scroll/flex restrictions */
       html, body {
         background: #ffffff !important;
         color: #000000 !important;
@@ -372,7 +372,7 @@ foreach ($_SESSION['patients'] as $sp) {
         display: block !important;
       }
 
-      /* 2. Unconstrain main and section wrappers */
+      /*  Unconstrain main and section wrappers */
       main, section {
         overflow: visible !important;
         display: block !important;
@@ -381,17 +381,17 @@ foreach ($_SESSION['patients'] as $sp) {
         margin: 0 !important;
       }
 
-      /* 3. Hide all page chrome and layout structures by default */
+      /*  Hide all page chrome and layout structures by default */
       body * {
         visibility: hidden !important;
       }
 
-      /* 4. Make ONLY the official printable receipt visible */
+      /*  Make ONLY the official printable receipt visible */
       #printableReceipt, #printableReceipt * {
         visibility: visible !important;
       }
 
-      /* 5. Position receipt at exact top center of printed page */
+      /* Position receipt at exact top center of printed page */
       #printableReceipt {
         position: absolute !important;
         left: 0 !important;
@@ -416,8 +416,9 @@ foreach ($_SESSION['patients'] as $sp) {
         box-shadow: none !important;
       }
 
-      /* 6. Suppress interactive action buttons, headers, sidebars, and nav */
-      header, aside, footer, .no-print, .no-print *, button, a, #headerRoleDropdown, div[class*="URL STATUS BAR"], nav {
+      /*  Suppress interactive action buttons, headers, sidebars, and nav */
+      header, aside, footer, .no-print, .no-print *, button, a, #headerRoleDropdown,
+       div[class*="URL STATUS BAR"], nav {
         display: none !important;
         visibility: hidden !important;
       }
@@ -429,12 +430,15 @@ foreach ($_SESSION['patients'] as $sp) {
     }
   </style>
 </head>
-<body class="<?= $isDarkBlue ? 'bg-[#07162c] text-slate-100' : 'bg-[#edf5fc] text-slate-800' ?> min-h-screen flex flex-col antialiased selection:bg-[#06559d] selection:text-white">
+<body class="<?= $isDarkBlue ? 'bg-[#07162c] text-slate-100' : 'bg-[#edf5fc] text-slate-800' ?> 
+min-h-screen flex flex-col antialiased selection:bg-[#06559d] selection:text-white">
 
   <!-- TOP HEADER (Full Width Header Bar) -->
-  <header class="<?= $isDarkBlue ? 'bg-[#071d3a] border-b border-[#1b3b6f]' : 'bg-[#06559d]' ?> text-white px-5 sm:px-8 py-3.5 shadow-md flex items-center justify-between no-print transition-colors">
+  <header class="<?= $isDarkBlue ? 'bg-[#071d3a] border-b border-[#1b3b6f]' : 'bg-[#06559d]' ?>
+   text-white px-5 sm:px-8 py-3.5 shadow-md flex items-center justify-between no-print transition-colors">
     <div class="flex items-center gap-3.5">
-      <a href="index.php?tab=registration" class="h-9 w-9 bg-white rounded-lg flex items-center justify-center shadow-xs hover:scale-105 transition">
+      <a href="index.php?tab=registration" class="h-9 w-9 bg-white rounded-lg flex items-center 
+      justify-center shadow-xs hover:scale-105 transition">
         <i class="fa-solid fa-plus text-[#06559d] text-xl font-black"></i>
       </a>
       <div class="leading-tight">
@@ -450,8 +454,11 @@ foreach ($_SESSION['patients'] as $sp) {
     <div class="flex items-center gap-3">
       <!-- Role Switcher Popover Button -->
       <div class="relative">
-        <button id="headerRoleSwitcherBtn" onclick="document.getElementById('headerRoleDropdown').classList.toggle('hidden');" type="button" class="flex items-center gap-2.5 bg-blue-800/80 hover:bg-blue-800 px-3 py-1.5 rounded-xl border border-blue-400/30 text-xs transition cursor-pointer text-left shadow-xs">
-          <div class="w-8 h-8 rounded-lg bg-white/20 text-white flex items-center justify-center font-black text-xs border border-white/30 shrink-0">
+        <button id="headerRoleSwitcherBtn" onclick="document.getElementById('headerRoleDropdown').classList.toggle('hidden');
+        " type="button" class="flex items-center gap-2.5 bg-blue-800/80 hover:bg-blue-800 px-3 py-1.5 rounded-xl border
+         border-blue-400/30 text-xs transition cursor-pointer text-left shadow-xs">
+          <div class="w-8 h-8 rounded-lg bg-white/20 text-white flex items-center justify-center font-black text-xs border 
+          border-white/30 shrink-0">
             <?= $userInitials ?>
           </div>
           <div class="hidden sm:block">
@@ -468,7 +475,8 @@ foreach ($_SESSION['patients'] as $sp) {
         </button>
 
         <!-- Dropdown Menu -->
-        <div id="headerRoleDropdown" class="hidden absolute right-0 mt-2 w-72 bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 text-xs">
+        <div id="headerRoleDropdown" class="hidden absolute right-0 mt-2 w-72 bg-white text-slate-800 rounded-2xl 
+        shadow-2xl border border-slate-200 py-2 z-50 text-xs">
           <div class="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between">
             <span class="font-bold text-slate-900 block">Switch Clinical Role</span>
             <span class="text-[10px] text-slate-500">1-click switch</span>
@@ -507,7 +515,7 @@ foreach ($_SESSION['patients'] as $sp) {
         <?= date('Y-m-d  h:i A') ?>
       </div>
 
-      <!-- 1-Click Dark Blue Theme Switcher -->
+      <!-- Click Dark Blue Theme Switcher -->
       <a href="index.php?tab=<?= urlencode($activeTab) ?>&theme=<?= $isDarkBlue ? 'default' : 'dark_blue' ?>" class="text-xs px-3 py-1.5 rounded-xl border <?= $isDarkBlue ? 'border-sky-400 bg-sky-950/70 text-sky-200' : 'border-blue-400/40 bg-blue-800/80 hover:bg-blue-800 text-white' ?> font-bold transition flex items-center gap-1.5 shadow-xs" title="Switch Theme Color">
         <i class="fa-solid <?= $isDarkBlue ? 'fa-sun text-amber-300' : 'fa-moon text-sky-200' ?>"></i>
         <span class="hidden md:inline"><?= $isDarkBlue ? 'Classic Blue' : 'Dark Blue' ?></span>
@@ -537,7 +545,7 @@ foreach ($_SESSION['patients'] as $sp) {
   <!-- MAIN CONTAINER (PERMANENT LEFT SIDEBAR + RIGHT WORKSPACE) -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-row gap-6 items-start">
 
-    <!-- PERMANENT LEFT SIDEBAR (Modules 1 to 10 - Always Locked on Left) -->
+    <!-- PERMANENT LEFT SIDEBAR -->
     <aside class="w-64 min-w-[16rem] shrink-0 sticky top-4 <?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f] text-slate-200' : 'bg-[#eaf4fc] border-[#c6e1f8] text-slate-800' ?> border rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between no-print">
       <div>
         <!-- Sidebar Title Header -->
@@ -686,73 +694,104 @@ foreach ($_SESSION['patients'] as $sp) {
         </div>
       <?php endif; ?>
 
-      <!-- 1. HOSPITAL EXECUTIVE DASHBOARD -->
+      <!-- HOSPITAL EXECUTIVE DASHBOARD -->
       <?php if ($activeTab === 'dashboard'): ?>
-        <div class="space-y-6 <?= $isDarkBlue ? 'bg-[#07162c] -m-4 sm:-m-6 p-4 sm:p-6 rounded-3xl border border-[#1b3b6f] text-slate-100 shadow-xl' : '' ?>">
-          
-          <!-- Executive Header -->
-          <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b <?= $isDarkBlue ? 'border-[#1b3b6f]' : 'border-[#c7e0f6]' ?>">
+        <div class="space-y-6 <?= $isDarkBlue ? 'bg-[#07162c] -m-4 sm:-m-6 p-4 sm:p-6 rounded-3xl border border-[#1b3b6f] 
+        text-slate-100 shadow-xl' : '' ?>">
+           <!-- Executive Header -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b <?= $isDarkBlue ? 
+          'border-[#1b3b6f]' : 'border-[#c7e0f6]' ?>">
             <div>
               <div class="flex items-center gap-2">
-                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold <?= $isDarkBlue ? 'bg-[#0a2f5a] text-sky-200 border border-sky-400/40' : 'bg-[#0260a8] text-white' ?>">
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold <?= $isDarkBlue ? 
+                'bg-[#0a2f5a] text-sky-200 border border-sky-400/40' : 'bg-[#0260a8] text-white' ?>">
                   <i class="fa-solid fa-crown mr-1"></i> Admin Command Centre
-                </span>
-               
+               </span>
               </div>
-              <h2 class="text-xl sm:text-2xl font-bold <?= $isDarkBlue ? 'text-white' : 'text-[#0c477d]' ?> tracking-tight mt-1">
-                Hospital Executive Operations &amp; All Modules Hub
+              <h2 class="text-xl sm:text-2xl font-bold <?= $isDarkBlue ? 
+              'text-white' : 'text-[#0c477d]' ?> tracking-tight mt-1">
+                Hospital Executive Operations 
               </h2>
               <p class="text-xs <?= $isDarkBlue ? 'text-slate-300' : 'text-slate-600' ?>">
-                Centralized administration interface providing immediate oversight and routing across all clinical, diagnostic, and financial modules.
+                Centralized administration interface providing immediate oversight and routing across all clinical, 
+                diagnostic and financial modules.
               </p>
             </div>
             <div class="flex items-center gap-2">
-              <a href="index.php?tab=registration" class="bg-[#0069c8] hover:bg-[#0057a6] text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center gap-2">
+              <a href="index.php?tab=registration" class="bg-[#0069c8] hover:bg-[#0057a6] 
+              text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center gap-2">
                 <i class="fa-solid fa-user-plus"></i><span>Register New Patient</span>
-              </a>
-              
+              </a>  
             </div>
           </div>
 
-          <!-- 1-Click Role Switcher Bar Under Hospital Command Centre -->
-          <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f] text-slate-100' : 'bg-white border-[#c7e0f6]' ?> rounded-2xl p-4 border shadow-2xs flex flex-wrap items-center justify-between gap-4">
+          <!-- Click Role Switcher Bar Under Hospital Command Centre -->
+          <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f] text-slate-100' 
+          : 'bg-white border-[#c7e0f6]' ?>
+           rounded-2xl p-4 border shadow-2xs flex
+            flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-              <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#06559d] to-blue-600 text-white flex items-center justify-center font-black text-sm shadow-xs border border-white/40">
+              <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#06559d]
+               to-blue-600 text-white flex items-center
+               justify-center font-black text-sm shadow-xs border border-white/40">
                 <?= $userInitials ?>
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <span class="font-extrabold <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?> text-sm"><?= htmlspecialchars($currentUser['full_name']) ?></span>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#06559d] text-white uppercase tracking-wider font-mono"><?= htmlspecialchars($currentUser['role']) ?></span>
+                  <span class="font-extrabold <?= $isDarkBlue ? 
+                  'text-white' : 'text-slate-900' ?> text-sm">
+                    <?= htmlspecialchars($currentUser['full_name']) ?></span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] 
+                  font-bold bg-[#06559d] 
+                  text-white uppercase tracking-wider font-mono">
+                  <?= htmlspecialchars($currentUser['role']) ?></span>
                   <span class="text-[11px] text-emerald-400 font-bold inline-flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Active Session
-                  </span>
+                  
                 </div>
                 <p class="text-xs <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?> mt-0.5">
-                  Assigned Duty: <strong class="<?= $isDarkBlue ? 'text-slate-200' : 'text-slate-700' ?>"><?= htmlspecialchars($currentUser['department'] ?? 'Hospital Administration') ?></strong>
+                  Assigned Duty: <strong class="<?= $isDarkBlue ? 'text-slate-200' : 'text-slate-700' ?>">
+                    <?= htmlspecialchars($currentUser['department'] ?? 'Hospital Administration') ?></strong>
                 </p>
               </div>
             </div>
 
-            <!-- 1-Click Role Switch Buttons -->
+            <!--Click Role Switch Buttons -->
             <div class="flex flex-wrap items-center gap-1.5">
               <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-1">Switch Role:</span>
-              <a href="index.php?switch_role=admin&return_tab=dashboard" title="Switch to Admin" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'admin' ? 'bg-[#06559d] text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+              <a href="index.php?switch_role=admin&return_tab=dashboard" title="Switch to Admin" class="px-3 py-1.5
+               rounded-xl text-xs font-bold transition flex items-center gap-1.5 
+               <?= $currentUser['role'] === 'admin' ? 'bg-[#06559d] text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] 
+               text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
                 <i class="fa-solid fa-crown text-[10px]"></i><span>Admin</span>
               </a>
-              <a href="index.php?switch_role=doctor&return_tab=dashboard" title="Switch to Doctor" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'doctor' ? 'bg-emerald-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+              <a href="index.php?switch_role=doctor&return_tab=dashboard" title="Switch to Doctor" class="px-3 py-1.5 
+              rounded-xl text-xs font-bold transition flex items-center gap-1.5 
+              <?= $currentUser['role'] === 'doctor' ? 'bg-emerald-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] 
+              text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
                 <i class="fa-solid fa-user-doctor text-[10px]"></i><span>Doctor</span>
               </a>
-              <a href="index.php?switch_role=nurse&return_tab=dashboard" title="Switch to Nurse" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'nurse' ? 'bg-cyan-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+              <a href="index.php?switch_role=nurse&return_tab=dashboard" title="Switch to Nurse" class="px-3 py-1.5 
+              rounded-xl text-xs font-bold transition flex items-center gap-1.5 
+              <?= $currentUser['role'] === 'nurse' ? 'bg-cyan-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c]
+               text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
                 <i class="fa-solid fa-stethoscope text-[10px]"></i><span>Nurse</span>
               </a>
-              <a href="index.php?switch_role=pharmacist&return_tab=dashboard" title="Switch to Pharmacist" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'pharmacist' ? 'bg-amber-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+              <a href="index.php?switch_role=pharmacist&return_tab=dashboard" title="Switch to Pharmacist" class="px-3 py-1.5 
+              rounded-xl text-xs font-bold transition flex items-center gap-1.5 
+              <?= $currentUser['role'] === 'pharmacist' ? 'bg-amber-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] 
+              text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
                 <i class="fa-solid fa-prescription-bottle-medical text-[10px]"></i><span>Pharmacist</span>
               </a>
-              <a href="index.php?switch_role=lab_tech&return_tab=dashboard" title="Switch to Lab Tech" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'lab_tech' ? 'bg-purple-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+              <a href="index.php?switch_role=lab_tech&return_tab=dashboard" title="Switch to Lab Tech" class="px-3 py-1.5 
+              rounded-xl text-xs font-bold transition flex items-center gap-1.5 
+              <?= $currentUser['role'] === 'lab_tech' ? 'bg-purple-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] 
+              text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
                 <i class="fa-solid fa-vial-virus text-[10px]"></i><span>Lab Tech</span>
               </a>
-              <a href="index.php?switch_role=accountant&return_tab=dashboard" title="Switch to Accountant" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'accountant' ? 'bg-teal-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+              <a href="index.php?switch_role=accountant&return_tab=dashboard" title="Switch to Accountant" class="px-3 py-1.5
+               rounded-xl text-xs font-bold transition flex items-center gap-1.5
+                <?= $currentUser['role'] === 'accountant' ? 'bg-teal-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c]
+                 text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
                 <i class="fa-solid fa-file-invoice-dollar text-[10px]"></i><span>Accountant</span>
               </a>
             </div>
@@ -818,7 +857,7 @@ foreach ($_SESSION['patients'] as $sp) {
                 <span class="font-bold uppercase tracking-wider text-blue-100 flex items-center gap-2 text-xs">
                   <i class="fa-solid fa-arrows-split-up-and-left text-sky-300"></i> Normalized Clinical Workflow Pipeline
                 </span>
-                <p class="text-[11px] text-blue-200 mt-0.5">Real-time multi-department patient movement across all 6 stages of care delivery.</p>
+                <p class="text-[11px] text-blue-200 mt-0.5">Real-time multi-department patient movement across all stages of care delivery.</p>
               </div>
               <span class="text-[10px] font-mono bg-white/10 px-2.5 py-1 rounded-full text-blue-100 font-bold border border-white/15">
                 Active Queue: <?= count($_SESSION['patients']) ?> Patients
@@ -852,23 +891,27 @@ foreach ($_SESSION['patients'] as $sp) {
           </div>
 
           <!-- Active Patients In Lifecycle Table -->
-          <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> rounded-2xl p-5 border shadow-2xs space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b <?= $isDarkBlue ? 'border-[#1b3b6f]' : 'border-slate-100' ?> pb-3">
+          <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> 
+          rounded-2xl p-5 border shadow-2xs space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b <?= $isDarkBlue ? 
+            'border-[#1b3b6f]' : 'border-slate-100' ?> pb-3">
               <div>
                 <h3 class="font-bold text-sm <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?> flex items-center gap-2">
                   <i class="fa-solid fa-users text-[#06559d]"></i> Live Patient Flow Through Care Lifecycle
                 </h3>
-                <p class="text-xs <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?>">Real-time queue tracking current clinic location and immediate departmental action routing.</p>
+                <p class="text-xs <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?>"
+                >Real-time queue tracking current clinic location and immediate departmental action routing.</p>
               </div>
-              <a href="index.php?tab=registration" class="px-3 py-1.5 bg-[#06559d] hover:bg-[#05437d] text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs">
+              <a href="index.php?tab=registration" class="px-3 py-1.5 bg-[#06559d] hover:bg-[#05437d] text-white 
+              text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs">
                 <i class="fa-solid fa-plus text-[10px]"></i><span>Admit Patient</span>
               </a>
             </div>
-
-            <div class="overflow-x-auto">
+           <div class="overflow-x-auto">
               <table class="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr class="<?= $isDarkBlue ? 'bg-[#07162c] text-slate-300' : 'bg-slate-50 text-slate-600' ?> border-b <?= $isDarkBlue ? 'border-[#1b3b6f]' : 'border-slate-200' ?>">
+                  <tr class="<?= $isDarkBlue ? 'bg-[#07162c] text-slate-300' : 'bg-slate-50 text-slate-600' ?>
+                   border-b <?= $isDarkBlue ? 'border-[#1b3b6f]' : 'border-slate-200' ?>">
                     <th class="p-2.5 font-bold">OPD #</th>
                     <th class="p-2.5 font-bold">Patient Name</th>
                     <th class="p-2.5 font-bold">Scheme</th>
@@ -934,7 +977,7 @@ foreach ($_SESSION['patients'] as $sp) {
         </div>
       <?php endif; ?>
 
-      <!-- 2. PATIENT INTAKE & REGISTRATION -->
+      <!--  PATIENT INTAKE & REGISTRATION -->
       <?php if ($activeTab === 'registration'): ?>
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-3xl mx-auto space-y-4 text-slate-800">
           <div class="border-b border-slate-100 pb-3">
@@ -948,11 +991,13 @@ foreach ($_SESSION['patients'] as $sp) {
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Full Patient Name *</label>
-                <input type="text" name="full_name" required placeholder="  " class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" name="full_name" required placeholder="  " class="w-full px-3 py-2 
+                border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Phone Number *</label>
-                <input type="text" name="phone" required placeholder="  " class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" name="phone" required placeholder="  " class="w-full px-3 py-2 border
+                 border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Gender *</label>
@@ -971,14 +1016,15 @@ foreach ($_SESSION['patients'] as $sp) {
                 </select>
               </div>
             </div>
-            <button type="submit" class="w-full py-2.5 bg-[#06559d] hover:bg-[#05437d] text-white font-bold rounded-xl text-xs shadow-md transition">
-              Save Patient &amp; Route to Triage Desk &rarr;
+            <button type="submit" class="w-full py-2.5 bg-[#06559d] hover:bg-[#05437d] 
+            text-white font-bold rounded-xl text-xs shadow-md transition">
+              Save Patient
             </button>
           </form>
         </div>
       <?php endif; ?>
 
-      <!-- 3. TRIAGE DESK -->
+      <!--  TRIAGE DESK -->
       <?php if ($activeTab === 'triage'): ?>
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-3xl mx-auto space-y-4 text-slate-800">
           <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
@@ -986,9 +1032,12 @@ foreach ($_SESSION['patients'] as $sp) {
               <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-stethoscope text-emerald-600"></i> Clinical Triage Station
               </h2>
-              <p class="text-xs text-slate-500">Record bio-signals for: <strong><?= htmlspecialchars($selectedPatient['full_name'] ?? 'Patient') ?></strong> (<?= htmlspecialchars($selectedPatient['opd_number'] ?? 'OPD') ?>)</p>
+              <p class="text-xs text-slate-500">Record bio-signals for: <strong><?= htmlspecialchars
+              ($selectedPatient['full_name'] ?? 'Patient') ?></strong> (<?= htmlspecialchars
+              ($selectedPatient['opd_number'] ?? 'OPD') ?>)</p>
             </div>
-            <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold font-mono">Status: Ready</span>
+            <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold font-mono">
+              Status: Ready</span>
           </div>
           <form method="POST" action="index.php?tab=triage&patient_id=<?= $activePatientId ?>" class="space-y-4">
             <input type="hidden" name="action" value="save_triage">
@@ -996,98 +1045,118 @@ foreach ($_SESSION['patients'] as $sp) {
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Systolic BP (mmHg)</label>
-                <input type="number" name="bp_systolic" value="120" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
+                <input type="number" name="bp_systolic" value="120" class="w-full px-3 py-2 border 
+                border-slate-300 rounded-xl outline-none">
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Diastolic BP (mmHg)</label>
-                <input type="number" name="bp_diastolic" value="80" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
+                <input type="number" name="bp_diastolic" value="80" class="w-full px-3 py-2 border
+                 border-slate-300 rounded-xl outline-none">
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Heart Rate (bpm)</label>
-                <input type="number" name="heart_rate" value="76" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
+                <input type="number" name="heart_rate" value="76" class="w-full px-3 py-2 border border-slate-300 
+                rounded-xl outline-none">
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Temperature (&deg;C)</label>
-                <input type="number" step="0.1" name="temperature" value="36.8" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
+                <input type="number" step="0.1" name="temperature" value="36.8" class="w-full px-3 py-2 
+                border border-slate-300 rounded-xl outline-none">
               </div>
             </div>
-            <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition">
-              Validate Vitals &amp; Route to Doctor &rarr;
+            <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white
+             font-bold rounded-xl text-xs shadow-md transition">
+              Validate Vitals
             </button>
           </form>
         </div>
       <?php endif; ?>
 
-      <!-- 4. DOCTOR CONSULTATION -->
+      <!--DOCTOR CONSULTATION -->
       <?php if ($activeTab === 'consultation'): ?>
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-3xl mx-auto space-y-4 text-slate-800">
           <div class="border-b border-slate-100 pb-3">
             <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
               <i class="fa-solid fa-user-doctor text-blue-600"></i> Doctor Consultation Workstation
             </h2>
-            <p class="text-xs text-slate-500">Patient: <strong><?= htmlspecialchars($selectedPatient['full_name'] ?? 'Samuel Mwangi') ?></strong></p>
+            <p class="text-xs text-slate-500">Patient: <strong><?= htmlspecialchars($selectedPatient['full_name'] ?? 
+            'Samuel Mwangi') 
+            ?></strong></p>
           </div>
           <form method="POST" action="index.php?tab=consultation&patient_id=<?= $activePatientId ?>" class="space-y-4 text-xs">
             <input type="hidden" name="action" value="save_consultation">
             <input type="hidden" name="patient_id" value="<?= $activePatientId ?>">
             <div>
               <label class="block font-bold text-slate-700 mb-1">Chief Complaint</label>
-              <input type="text" name="chief_complaint" value="Acute febrile illness, joint pains, headache" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
+              <input type="text" name="chief_complaint" value="" class="w-full px-3 py-2 border border-slate-300
+               rounded-xl outline-none">
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">Clinical Diagnosis</label>
-              <input type="text" name="diagnosis" value="Clinical Malaria (Suspected) / Acute URI" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
+              <input type="text" name="diagnosis" value="" class="w-full px-3 py-2 border border-slate-300 
+              rounded-xl outline-none">
             </div>
             <div>
-              <label class="block font-bold text-slate-700 mb-1">Prescription (Formulary)</label>
-              <textarea name="prescription" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">Coartem 20/120mg Tabs 1x4 3/7, Paracetamol 500mg 1x3 3/7</textarea>
+              <label class="block font-bold text-slate-700 mb-1">Prescription </label>
+              <textarea name="prescription" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
+
+              </textarea>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <button type="submit" name="route_to" value="lab" class="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <button type="submit" name="route_to" value="lab" class="w-full py-2.5 bg-purple-600 
+              hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center 
+              justify-center gap-1.5 cursor-pointer">
                 <i class="fa-solid fa-flask"></i>
-                <span>Order STAT Lab &amp; Send to Lab &rarr;</span>
+                <span>Order STAT Lab</span>
               </button>
-              <button type="submit" name="route_to" value="pharmacy" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <button type="submit" name="route_to" value="pharmacy" class="w-full py-2.5 bg-blue-600 
+              hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center 
+              justify-center gap-1.5 cursor-pointer">
                 <i class="fa-solid fa-pills"></i>
-                <span>Sign Rx &amp; Send to Pharmacy &rarr;</span>
+                <span>Sign Rx</span>
               </button>
             </div>
           </form>
         </div>
       <?php endif; ?>
 
-      <!-- 5. DIAGNOSTIC LABORATORY -->
+      <!-- DIAGNOSTIC LABORATORY -->
       <?php if ($activeTab === 'laboratory'): ?>
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-3xl mx-auto space-y-4 text-slate-800">
           <div class="border-b border-slate-100 pb-3">
             <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
               <i class="fa-solid fa-flask text-purple-600"></i> Diagnostic Pathology Laboratory
             </h2>
-            <p class="text-xs text-slate-500">Specimen test orders for: <strong><?= htmlspecialchars($selectedPatient['full_name'] ?? 'Samuel Mwangi') ?></strong></p>
+            <p class="text-xs text-slate-500">Specimen test orders for: <strong><?= htmlspecialchars($selectedPatient['full_name']
+             ?? 'Samuel Mwangi') ?></strong></p>
           </div>
           <div class="p-3 bg-purple-50 rounded-xl border border-purple-200 text-purple-900 text-xs space-y-2">
-            <div class="flex justify-between"><span>Rapid Malaria Test (mRDT):</span><strong class="text-rose-600">POSITIVE (Plasmodium falciparum)</strong></div>
-            <div class="flex justify-between"><span>Complete Blood Count (CBC):</span><strong>Hemoglobin: 13.8 g/dL (Normal)</strong></div>
+            <div class="flex justify-between"><span>Rapid Malaria Test (mRDT):</span><strong class="text-rose-600">
+              POSITIVE (Plasmodium falciparum)</strong></div>
+            <div class="flex justify-between"><span>Complete Blood Count (CBC):</span><strong>
+              Hemoglobin: 13.8 g/dL (Normal)</strong></div>
           </div>
           <form method="POST" action="index.php?tab=laboratory&patient_id=<?= $activePatientId ?>">
             <input type="hidden" name="action" value="complete_lab">
             <input type="hidden" name="patient_id" value="<?= $activePatientId ?>">
-            <button type="submit" class="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+            <button type="submit" class="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white
+             font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
               <i class="fa-solid fa-circle-check"></i>
-              <span>Validate Lab Results &amp; Forward to Pharmacy &rarr;</span>
+              <span>Validate Lab Results</span>
             </button>
           </form>
         </div>
       <?php endif; ?>
 
-      <!-- 6. PHARMACY DISPENSARY -->
+      <!--  PHARMACY DISPENSARY -->
       <?php if ($activeTab === 'pharmacy'): ?>
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-3xl mx-auto space-y-4 text-slate-800">
           <div class="border-b border-slate-100 pb-3">
             <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
               <i class="fa-solid fa-pills text-amber-600"></i> Pharmacy Dispensary &amp; Stock Verification
             </h2>
-            <p class="text-xs text-slate-500">Dispense prescription for: <strong><?= htmlspecialchars($selectedPatient['full_name'] ?? 'Samuel Mwangi') ?></strong></p>
+            <p class="text-xs text-slate-500">Dispense prescription for: <strong>
+              <?= htmlspecialchars($selectedPatient['full_name']?? 'Samuel Mwangi') ?></strong></p>
           </div>
           <form method="POST" action="index.php?tab=pharmacy&patient_id=<?= $activePatientId ?>" class="space-y-4 text-xs">
             <input type="hidden" name="action" value="dispense_medication">
@@ -1095,44 +1164,53 @@ foreach ($_SESSION['patients'] as $sp) {
             <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900">
               <strong>Prescribed Medication:</strong> Coartem 20/120mg (Qty: 24 tabs) &bull; Paracetamol 500mg (Qty: 20 tabs)
             </div>
-            <button type="submit" class="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-md transition">
-              Confirm Dispense &amp; Route to Billing &rarr;
+            <button type="submit" class="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white 
+            font-bold rounded-xl text-xs shadow-md transition">
+              Confirm Dispense
             </button>
           </form>
         </div>
       <?php endif; ?>
 
-      <!-- 7. BILLING & POS -->
+      <!--  BILLING & POS -->
       <?php if ($activeTab === 'billing'): ?>
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-3xl mx-auto space-y-4 text-slate-800">
           <div class="border-b border-slate-100 pb-3">
             <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
               <i class="fa-solid fa-receipt text-teal-600"></i> Cashier Billing &amp; Revenue POS
             </h2>
-            <p class="text-xs text-slate-500">Patient: <strong><?= htmlspecialchars($selectedPatient['full_name'] ?? 'Samuel Mwangi') ?></strong></p>
+            <p class="text-xs text-slate-500">Patient: <strong>
+              <?= htmlspecialchars($selectedPatient['full_name'] ?? 'Samuel Mwangi') ?></strong></p>
           </div>
           <div class="space-y-2 text-xs">
-            <div class="flex justify-between py-1 border-b"><span>General Consultation Fee</span><span class="font-mono">KES <?= number_format($_SESSION['facility_settings']['consultation_fee'], 2) ?></span></div>
-            <div class="flex justify-between py-1 border-b"><span>Diagnostic Lab Tests (mRDT &amp; CBC)</span><span class="font-mono">KES 1,200.00</span></div>
-            <div class="flex justify-between py-1 border-b"><span>Pharmacy Formulary Medication</span><span class="font-mono">KES 1,550.00</span></div>
-            <div class="flex justify-between py-2 text-base font-black text-slate-900"><span>Total Due:</span><span class="font-mono text-emerald-700">KES <?= number_format($_SESSION['facility_settings']['consultation_fee'] + 2750, 2) ?></span></div>
+            <div class="flex justify-between py-1 border-b"><span>General Consultation Fee</span>
+            <span class="font-mono">KES <?= number_format($_SESSION['facility_settings']['consultation_fee'], 2) ?>
+          </span></div>
+            <div class="flex justify-between py-1 border-b"><span>Diagnostic Lab Tests (mRDT &amp; CBC)</span>
+            <span class="font-mono">KES 1,200.00</span></div>
+            <div class="flex justify-between py-1 border-b"><span>Pharmacy Formulary Medication</span>
+            <span class="font-mono">KES 1,550.00</span></div>
+            <div class="flex justify-between py-2 text-base font-black text-slate-900"><span>Total Due:</span>
+            <span class="font-mono text-emerald-700">KES 
+              <?= number_format($_SESSION['facility_settings']['consultation_fee'] + 2750, 2) ?></span></div>
           </div>
           <form method="POST" action="index.php?tab=billing&patient_id=<?= $activePatientId ?>" class="space-y-3">
             <input type="hidden" name="action" value="settle_bill">
             <input type="hidden" name="patient_id" value="<?= $activePatientId ?>">
-            <button type="submit" class="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs shadow-md transition">
-              Process M-Pesa / Cash Payment &amp; Issue Receipt &rarr;
+            <button type="submit" class="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white 
+            font-bold rounded-xl text-xs shadow-md transition">
+              Process M-Pesa / Cash Payment
             </button>
           </form>
         </div>
       <?php endif; ?>
 
-      <!-- 8. OFFICIAL RECEIPT -->
+      <!--  OFFICIAL RECEIPT -->
       <?php if ($activeTab === 'receipt'): ?>
         <div class="max-w-md mx-auto bg-white p-6 rounded-2xl border border-slate-200 shadow-md text-xs space-y-3 text-slate-800" id="printableReceipt">
           <div class="text-center border-b border-dashed border-slate-400 pb-3">
             <h3 class="font-black text-base uppercase"><?= htmlspecialchars($_SESSION['facility_settings']['hospital_name']) ?></h3>
-            <p class="text-[10px] text-slate-500">MOH Code: <?= htmlspecialchars($_SESSION['facility_settings']['moh_code']) ?> &bull; <?= htmlspecialchars($_SESSION['facility_settings']['facility_level']) ?></p>
+           <p class="text-[10px] text-slate-500 font-mono">MOH Code: <?= htmlspecialchars($_SESSION['facility_settings']['moh_code']) ?></p>
             <div class="mt-1 font-mono text-[10px] bg-slate-100 p-1 rounded font-bold">OFFICIAL MEDICAL RECEIPT #REC-<?= rand(10000, 99999) ?></div>
           </div>
           <div class="space-y-1">
@@ -1165,7 +1243,7 @@ foreach ($_SESSION['patients'] as $sp) {
         </div>
       <?php endif; ?>
 
-      <!-- 9. SECURITY AUDIT TRAIL -->
+      <!-- SECURITY AUDIT TRAIL -->
       <?php if ($activeTab === 'audit'): ?>
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-4xl mx-auto space-y-4 text-slate-800">
           <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
@@ -1198,7 +1276,7 @@ foreach ($_SESSION['patients'] as $sp) {
         </div>
       <?php endif; ?>
 
-      <!-- 10. SYSTEM SETTINGS -->
+      <!-- SYSTEM SETTINGS -->
       <?php if ($activeTab === 'settings'): ?>
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-3xl mx-auto space-y-4 text-slate-800">
           <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
