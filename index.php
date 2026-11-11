@@ -95,25 +95,33 @@ $allowedTabs = ['dashboard', 'pipeline', 'registration', 'triage', 'consultation
 if (!in_array($activeTab, $allowedTabs)) {
     $activeTab = 'dashboard';
 }
-
 // Theme Handling (Supports Classic Hospital Blue & Dark Blue Cockpit)
 if (isset($_GET['theme'])) {
     $_SESSION['theme'] = safe_str($_GET['theme'], 'default');
 }
 $isDarkBlue = (isset($_SESSION['theme']) && $_SESSION['theme'] === 'dark_blue');
-
 // Generic System Roles Definition
 $systemRoles = [
-    'admin'      => ['id' => 1, 'username' => 'admin',      'full_name' => 'Admin',          'role' => 'admin',      'department' => 'Hospital Administration'],
-    'doctor'     => ['id' => 2, 'username' => 'doctor',     'full_name' => 'Doctor',         'role' => 'doctor',     'department' => 'Outpatient Clinical Services'],
-    'nurse'      => ['id' => 3, 'username' => 'nurse',      'full_name' => 'Nurse',          'role' => 'nurse',      'department' => 'Emergency & Triage Station'],
-    'pharmacist' => ['id' => 4, 'username' => 'pharmacist', 'full_name' => 'Pharmacist',     'role' => 'pharmacist', 'department' => 'Main Hospital Pharmacy'],
-    'lab_tech'   => ['id' => 5, 'username' => 'lab_tech',   'full_name' => 'Lab Technician', 'role' => 'lab_tech',   'department' => 'Diagnostic Pathology Lab'],
-    'accountant' => ['id' => 6, 'username' => 'accountant', 'full_name' => 'Accountant',     'role' => 'accountant', 'department' => 'Billing & Cashier Revenue Desk'],
+    'admin'      => ['id' => 1, 'username' => 'admin',      'full_name' => 'Admin',      
+        'role' => 'admin',      'department' => 'Hospital Administration'],
+    'doctor'     => ['id' => 2, 'username' => 'doctor',     'full_name' => 'Doctor',        
+     'role' => 'doctor',     'department' => 'Outpatient Clinical Services'],
+    'nurse'      => ['id' => 3, 'username' => 'nurse',      'full_name' => 'Nurse',        
+      'role' => 'nurse',      'department' => 'Emergency & Triage Station'],
+    'pharmacist' => ['id' => 4, 'username' => 'pharmacist', 'full_name' => 'Pharmacist',     
+    'role' => 'pharmacist', 'department' => 'Main Hospital Pharmacy'],
+    'lab_tech'   => ['id' => 5, 'username' => 'lab_tech',   'full_name' => 'Lab Technician',
+     'role' => 'lab_tech',   'department' => 'Diagnostic Pathology Lab'],
+    'accountant' => ['id' => 6, 'username' => 'accountant', 'full_name' => 'Accountant',     
+    'role' => 'accountant', 'department' => 'Billing & Cashier Revenue Desk'],
 ];
 
 // Clean session if user is not set or has legacy names
-if (empty($_SESSION['user']) || empty($_SESSION['user']['role']) || !isset($systemRoles[$_SESSION['user']['role']]) || strpos($_SESSION['user']['full_name'] ?? '', 'Omondi') !== false || strpos($_SESSION['user']['full_name'] ?? '', 'Kamau') !== false || strpos($_SESSION['user']['full_name'] ?? '', 'Wanjiku') !== false) {
+if (empty($_SESSION['user']) || empty($_SESSION['user']['role'])
+   || !isset($systemRoles[$_SESSION['user']['role']]) 
+  || strpos($_SESSION['user']['full_name'] ?? '', 'Omondi') !== false
+   || strpos($_SESSION['user']['full_name'] ?? '', 'Kamau') !== false 
+   || strpos($_SESSION['user']['full_name'] ?? '', 'Wanjiku') !== false) {
     $roleKey = $_SESSION['user']['role'] ?? 'admin';
     $_SESSION['user'] = $systemRoles[$roleKey] ?? $systemRoles['admin'];
 }
@@ -131,11 +139,12 @@ $roleInitialsMap = [
 $userInitials = $roleInitialsMap[$currentUser['role']] ?? strtoupper(substr($currentUser['username'] ?? 'AD', 0, 2));
 
 // Facility Settings State
-if (!isset($_SESSION['facility_settings']) || empty($_SESSION['facility_settings']['hospital_name']) || strpos($_SESSION['facility_settings']['hospital_name'], 'CareFlow') !== false) {
+if (!isset($_SESSION['facility_settings']) || empty($_SESSION['facility_settings']
+['hospital_name']) || strpos($_SESSION['facility_settings']['hospital_name'], 'CareFlow') !== false) {
     $_SESSION['facility_settings'] = [
         'hospital_name'    => 'AfyaSmart Integrated Health Centre',
         'moh_code'         => '2004',
-        'facility_level'   => 'Level 4 Hospital / Sub-County Referral',
+        'facility_level'   => ' Sub-County Referral',
         'consultation_fee' => 500.00,
         'triage_high_bp'   => 140,
         'triage_high_temp' => 38.0,
@@ -146,7 +155,7 @@ if (!isset($_SESSION['facility_settings']) || empty($_SESSION['facility_settings
 // Patient Records Session Storage (Normalized 6-Department Life-Cycle + Discharged)
 if (!isset($_SESSION['patients']) || count($_SESSION['patients']) < 4) {
     $_SESSION['patients'] = [
-        ['patient_id' => 23, 'opd_number' => 'OPD-2025-023', 'full_name' => 'Matty Jeff',    'gender' => 'Female', 'phone' => '+254 712 998 877', 'payment_scheme' => 'SHA',  'current_status' => 'Discharged'],
+        ['patient_id' => 23, 'opd_number' => 'OPD-2025-023', 'full_name' => 'Matty Jeff',    'gender' => 'Male', 'phone' => '+254 712 998 877', 'payment_scheme' => 'SHA',  'current_status' => 'Discharged'],
         ['patient_id' => 22, 'opd_number' => 'OPD-2025-022', 'full_name' => 'Kevin Otieno',  'gender' => 'Male',   'phone' => '+254 745 112 233', 'payment_scheme' => 'Cash', 'current_status' => 'Billing_Pending'],
         ['patient_id' => 21, 'opd_number' => 'OPD-2025-021', 'full_name' => 'John Kiprono',  'gender' => 'Male',   'phone' => '+254 711 234 567', 'payment_scheme' => 'SHA',  'current_status' => 'Pharmacy_Pending'],
         ['patient_id' => 20, 'opd_number' => 'OPD-2025-020', 'full_name' => 'Grace Nyambura','gender' => 'Female', 'phone' => '+254 722 345 678', 'payment_scheme' => 'Private Insurance', 'current_status' => 'Lab_Pending'],
