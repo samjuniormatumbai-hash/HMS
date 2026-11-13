@@ -1,346 +1,262 @@
 <?php
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+$baseDir = file_exists(__DIR__ . '/header.php') ? __DIR__ : (file_exists(dirname(__DIR__) . '/header.php') ? dirname(__DIR__) : __DIR__);
+require_once $baseDir . '/header.php';
 
-// 1. Resilient Database Discovery (Supports root and modules\ subfolder)
-$dbSearchPaths = [
-    __DIR__ . '/db.php',
-    __DIR__ . '/../db.php',
-    __DIR__ . '/config/db.php',
-    __DIR__ . '/../config/db.php',
+// Dynamic Real-Time Counters Calculated from Active Session State
+$autoTotalPatients = count($_SESSION['patients'] ?? []);
+$autoTriageQueue = count(array_filter($_SESSION['patients'] ?? [], fn($p) => in_array($p['current_status'] ?? '', ['Registered', 'Triaged'])));
+$autoConsultations = count(array_filter($_SESSION['patients'] ?? [], fn($p) => in_array($p['current_status'] ?? '', ['In_Consultation', 'Lab_Pending', 'Pharmacy_Pending', 'Billing_Pending', 'Discharged'])));
+$autoLabSpecimens = count(array_filter($_SESSION['patients'] ?? [], fn($p) => in_array($p['current_status'] ?? '', ['Lab_Pending', 'Pharmacy_Pending', 'Billing_Pending', 'Discharged'])));
+$autoPharmacyStock = !empty($_SESSION['pharmacy_inventory']) ? array_sum(array_column($_SESSION['pharmacy_inventory'], 'stock_qty')) : 1165;
+$autoDailyRevenue = !empty($_SESSION['revenue_ledger']) ? array_sum(array_column($_SESSION['revenue_ledger'], 'amount')) : 9750.00;
+
+$stages = [
+  'Registered'       => ['title' => 'Registration',   'step' => 1, 'page' => 'registration.php', 'icon' => 'fa-clipboard-list', 'color' => 'blue',    'next' => 'Triaged',          'next_page' => 'triage.php',        'next_lbl' => 'Send to Triage'],
+  'Triaged'          => ['title' => 'Triage Desk',    'step' => 2, 'page' => 'triage.php',       'icon' => 'fa-stethoscope',    'color' => 'rose',    'next' => 'In_Consultation',  'next_page' => 'consultation.php',  'next_lbl' => 'Send to Doctor'],
+  'In_Consultation'  => ['title' => 'Doctor Consult', 'step' => 3, 'page' => 'consultation.php', 'icon' => 'fa-user-doctor',   'color' => 'indigo',  'next' => 'Lab_Pending',      'next_page' => 'lab.php',           'next_lbl' => 'Send to Lab'],
+  'Lab_Pending'      => ['title' => 'Laboratory',     'step' => 4, 'page' => 'lab.php',          'icon' => 'fa-flask',          'color' => 'purple',  'next' => 'Pharmacy_Pending', 'next_page' => 'pharmacy.php',      'next_lbl' => 'Send to Pharmacy'],
+  'Pharmacy_Pending' => ['title' => 'Pharmacy',       'step' => 5, 'page' => 'pharmacy.php',     'icon' => 'fa-pills',          'color' => 'amber',   'next' => 'Billing_Pending',  'next_page' => 'billing.php',       'next_lbl' => 'Send to Billing'],
+  'Billing_Pending'  => ['title' => 'Billing & POS',  'step' => 6, 'page' => 'billing.php',      'icon' => 'fa-receipt',        'color' => 'emerald', 'next' => 'Discharged',       'next_page' => 'receipt.php',       'next_lbl' => 'Settle & Receipt'],
 ];
-foreach ($dbSearchPaths as $path) {
-    if (file_exists($path)) {
-        @require_once $path;
-        break;
-    }
-}
-
-$pdo = null;
-if (class_exists('Database')) {
-    try {
-        $pdo = Database::getConnection();
-    } catch (\Throwable $t) {}
-}
-
-// 2. Relative URLs (Detects if modules\ folder is present)
-$inModules = file_exists(__DIR__ . '/triage.php');
-$triageBase = $inModules ? 'triage.php' : (file_exists(__DIR__ . '/modules/triage.php') ? 'modules/triage.php' : 'triage.php');
-$receiptBase = $inModules ? 'receipt.php' : (file_exists(__DIR__ . '/modules/receipt.php') ? 'modules/receipt.php' : 'receipt.php');
-$logoutUrl = file_exists(__DIR__ . '/logout.php') ? 'logout.php' : '../logout.php';
-$loginUrl = file_exists(__DIR__ . '/login.php') ? 'login.php' : '../login.php';
-
-// Active User
-$username = $_SESSION['username'] ?? 'dr_kamau';
-$fullName = $_SESSION['full_name'] ?? 'Dr. Sajmat';
-$userRole = $_SESSION['role'] ?? 'doctor';
-
-// 3. Fetch Live Dashboard Metrics
-$totalPatients = 0;
-$pendingTriage = 0;
-$inConsultation = 0;
-$labPending = 0;
-$pharmacyPending = 0;
-$todayRevenue = 0;
-$recentPatients = [];
-
-if ($pdo) {
-    try {
-        $totalPatients = (int)$pdo->query("SELECT COUNT(*) FROM patients")->fetchColumn();
-        $pendingTriage = (int)$pdo->query("SELECT COUNT(*) FROM patients WHERE current_status = 'Registered'")->fetchColumn();
-        $inConsultation = (int)$pdo->query("SELECT COUNT(*) FROM patients WHERE current_status = 'Triaged'")->fetchColumn();
-        $labPending = (int)$pdo->query("SELECT COUNT(*) FROM patients WHERE current_status = 'Lab Pending'")->fetchColumn();
-        $pharmacyPending = (int)$pdo->query("SELECT COUNT(*) FROM patients WHERE current_status = 'Pharmacy Pending'")->fetchColumn();
-        $todayRevenue = (float)$pdo->query("SELECT COALESCE(SUM(paid_amount), 0) FROM invoices WHERE payment_status = 'Paid'")->fetchColumn();
-
-        $st = $pdo->query("SELECT * FROM patients ORDER BY patient_id DESC LIMIT 8");
-        $recentPatients = $st->fetchAll();
-    } catch (\Throwable $e) {}
-}
-
-// Fallback demo data if DB is offline or empty
-if ($totalPatients === 0) {
-    $totalPatients = 248;
-    $pendingTriage = 3;
-    $inConsultation = 5;
-    $labPending = 2;
-    $pharmacyPending = 4;
-    $todayRevenue = 48500.00;
-    $recentPatients = [
-        ['patient_id' => 1, 'opd_number' => 'OPD-2025-0212', 'full_name' => 'Matty Jeff', 'gender' => 'Female', 'dob' => '1995-05-10', 'phone' => '+254 712 998 877', 'current_status' => 'Discharged'],
-        ['patient_id' => 19, 'opd_number' => 'OPD-2025-0019', 'full_name' => 'Joe Doe', 'gender' => 'Male', 'dob' => '1994-08-14', 'phone' => '+254 712 345 678', 'current_status' => 'Triaged'],
-        ['patient_id' => 20, 'opd_number' => 'OPD-2025-0104', 'full_name' => 'John Kiprono Chebet', 'gender' => 'Male', 'dob' => '1988-04-12', 'phone' => '+254 711 234 567', 'current_status' => 'In Consultation'],
-        ['patient_id' => 21, 'opd_number' => 'OPD-2025-0105', 'full_name' => 'Grace Nyambura Mwangi', 'gender' => 'Female', 'dob' => '1995-11-20', 'phone' => '+254 722 345 678', 'current_status' => 'Lab Pending'],
-    ];
-}
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Executive Dashboard - IHMS CareFlow</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
-</head>
-<body class="bg-[#edf5fc] min-h-screen text-slate-800 flex flex-col antialiased">
 
-  <!-- TOP HEADER -->
-  <header class="bg-[#06559d] text-white px-5 sm:px-8 py-3.5 shadow-md flex items-center justify-between sticky top-0 z-40">
-    <div class="flex items-center gap-3.5">
-      <div class="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-[#06559d] shadow-xs">
-        <i class="fa-solid fa-chart-line text-lg font-black"></i>
+<div class="space-y-6 <?= $isDarkBlue ? 'bg-[#07162c] -m-4 sm:-m-6 p-4 sm:p-6 rounded-3xl border border-[#1b3b6f] text-slate-100 shadow-xl' : '' ?>">
+  
+  <!-- Executive Header -->
+  <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b <?= $isDarkBlue ? 'border-[#1b3b6f]' : 'border-[#c7e0f6]' ?>">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold <?= $isDarkBlue ? 'bg-[#0a2f5a] text-sky-200 border border-sky-400/40' : 'bg-[#0260a8] text-white' ?>">
+          <i class="fa-solid fa-crown mr-1"></i> Admin Command Centre
+        </span>
+        <?php if (!empty($_SESSION['facility_settings']['moh_code'])): ?>
+          
+        <?php endif; ?>
+      </div>
+      <h2 class="text-xl sm:text-2xl font-bold <?= $isDarkBlue ? 'text-white' : 'text-[#0c477d]' ?> tracking-tight mt-1">
+        Hospital Executive Operations 
+      </h2>
+      <p class="text-xs <?= $isDarkBlue ? 'text-slate-300' : 'text-slate-600' ?>">
+        Centralized administration interface providing immediate oversight and routing across all clinical, diagnostic, and financial modules.
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="registration.php" class="bg-[#0069c8] hover:bg-[#0057a6] text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center gap-2">
+        <i class="fa-solid fa-user-plus"></i><span>Register New Patient</span>
+      </a>
+     
+    </div>
+  </div>
+
+  <!-- 1-Click Role Switcher Bar Under Hospital Command Centre -->
+  <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f] text-slate-100' : 'bg-white border-[#c7e0f6]' ?> rounded-2xl p-4 border shadow-2xs flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#06559d] to-blue-600 text-white flex items-center justify-center font-black text-sm shadow-xs border border-white/40">
+        <?= $userInitials ?>
       </div>
       <div>
         <div class="flex items-center gap-2">
-          <h1 class="text-base sm:text-lg font-black tracking-tight uppercase">IHMS CAREFLOW</h1>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 border border-emerald-400/40">
-            EXECUTIVE DASHBOARD
-          </span>
+          <span class="font-extrabold <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?> text-sm"><?= htmlspecialchars($currentUser['full_name']) ?></span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#06559d] text-white uppercase tracking-wider font-mono"><?= htmlspecialchars($currentUser['role']) ?></span>
+          <span class="text-[11px] text-emerald-400 font-bold inline-flex items-center gap-1">
+           
         </div>
-        <p class="text-[11px] text-blue-100">Better Care, Better Living </p>
+        <p class="text-xs <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?> mt-0.5">
+          Assigned Duty: <strong class="<?= $isDarkBlue ? 'text-slate-200' : 'text-slate-700' ?>"><?= htmlspecialchars($currentUser['department'] ?? 'Hospital Administration') ?></strong>
+        </p>
       </div>
     </div>
 
-    <div class="flex items-center gap-4">
-      <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 text-xs">
-        <div class="h-6 w-6 rounded-lg bg-blue-500 text-white font-bold flex items-center justify-center text-[10px]">DR</div>
-        <div>
-          <div class="font-bold leading-none"><?= htmlspecialchars($fullName) ?></div>
-          <div class="text-[10px] text-blue-200"><?= ucwords($userRole) ?> / Clinician</div>
-        </div>
+    <!-- 1-Click Role Switch Buttons (Admin Only) -->
+    <?php if ($currentUser['role'] === 'admin'): ?>
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-1">Admin Switch:</span>
+        <a href="dashboard.php?switch_role=admin&return_page=dashboard.php" title="Switch to Admin" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'admin' ? 'bg-[#06559d] text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+          <i class="fa-solid fa-crown text-[10px]"></i><span>Admin</span>
+        </a>
+        <a href="dashboard.php?switch_role=doctor&return_page=dashboard.php" title="Switch to Doctor" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'doctor' ? 'bg-emerald-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+          <i class="fa-solid fa-user-doctor text-[10px]"></i><span>Doctor</span>
+        </a>
+        <a href="dashboard.php?switch_role=nurse&return_page=dashboard.php" title="Switch to Nurse" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'nurse' ? 'bg-cyan-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+          <i class="fa-solid fa-stethoscope text-[10px]"></i><span>Nurse</span>
+        </a>
+        <a href="dashboard.php?switch_role=pharmacist&return_page=dashboard.php" title="Switch to Pharmacist" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'pharmacist' ? 'bg-amber-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+          <i class="fa-solid fa-prescription-bottle-medical text-[10px]"></i><span>Pharmacist</span>
+        </a>
+        <a href="dashboard.php?switch_role=lab_tech&return_page=dashboard.php" title="Switch to Lab Tech" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'lab_tech' ? 'bg-purple-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+          <i class="fa-solid fa-vial-virus text-[10px]"></i><span>Lab Tech</span>
+        </a>
+        <a href="dashboard.php?switch_role=accountant&return_page=dashboard.php" title="Switch to Accountant" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 <?= $currentUser['role'] === 'accountant' ? 'bg-teal-600 text-white shadow-xs' : ($isDarkBlue ? 'bg-[#07162c] text-slate-200 border border-[#1b3b6f]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700') ?>">
+          <i class="fa-solid fa-file-invoice-dollar text-[10px]"></i><span>Accountant</span>
+        </a>
       </div>
-      <a href="<?= $logoutUrl ?>" onclick="return confirm('Sign out of IHMS CareFlow?');" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5">
-        <i class="fa-solid fa-right-from-bracket"></i>
-        <span>Logout</span>
-      </a>
-    </div>
-  </header>
-
-  <!-- MAIN BODY: SIDEBAR + CONTENT -->
-  <div class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col md:flex-row gap-6 items-stretch">
-    
-    <!-- LEFT SIDEBAR -->
-    <aside class="w-full md:w-64 bg-[#eaf4fc] border border-[#c6e1f8] rounded-2xl overflow-hidden shadow-xs shrink-0 flex flex-col">
-      <!-- Clinician Profile -->
-      <div class="p-3.5 bg-white border-b border-[#c6e1f8] flex items-center justify-between">
-        <div class="flex items-center gap-2 min-w-0">
-          <div class="h-8 w-8 rounded-lg bg-[#06559d] text-white font-bold text-xs flex items-center justify-center shrink-0">
-            DR
-          </div>
-          <div class="truncate leading-tight">
-            <div class="font-bold text-xs text-slate-900 truncate"><?= htmlspecialchars($fullName) ?></div>
-            <div class="text-[10px] text-blue-600 font-semibold">Doctor / Clinician</div>
-          </div>
-        </div>
-        <a href="<?= $loginUrl ?>" class="text-[10px] text-blue-600 hover:underline font-bold">Switch</a>
+    <?php else: ?>
+      <!-- Non-Admin: Fixed Assigned Role Badge (No switching or viewing other roles) -->
+      <div class="px-3 py-1.5 rounded-xl text-xs font-bold <?= $isDarkBlue ? 'bg-[#0c2340] text-sky-300 border border-[#1b3b6f]' : 'bg-blue-50 text-[#06559d] border border-blue-200' ?> flex items-center gap-2 shadow-2xs select-none">
+        <i class="fa-solid fa-user-shield text-emerald-500"></i>
+        <span>Designated Role: <strong class="uppercase font-mono"><?= htmlspecialchars($currentUser['role']) ?></strong></span>
+        <span class="text-[10px] text-slate-400">&bull; <?= htmlspecialchars($currentUser['department'] ?? 'Station') ?></span>
       </div>
-
-      <!-- Active Patient Banner -->
-      <div class="p-3 bg-[#d9ecfa] border-b border-[#c6e1f8] text-xs">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Active Patient:</span>
-        <div class="font-bold text-slate-900 mt-0.5 truncate">Matty Jeff (OPD-2025-0212)</div>
-        <div class="text-[11px] text-slate-600 font-mono">Male, 31y | Status: Discharged</div>
-      </div>
-
-      <!-- Navigation Links -->
-      <nav class="flex-1 divide-y divide-[#c6e1f8]/60 text-xs font-semibold text-[#0f3e6f]">
-        <a href="dashboard.php" class="flex items-center gap-3 px-4 py-3 bg-[#0260a8] text-white font-bold">
-          <i class="fa-solid fa-gauge w-5 text-center"></i>
-          <span>Executive Dashboard</span>
-        </a>
-        <a href="<?= $triageBase ?>?tab=registration" class="flex items-center gap-3 px-4 py-3 hover:bg-[#d9ecfa] transition">
-          <span class="font-mono text-slate-400 font-bold w-4">1.</span>
-          <i class="fa-solid fa-user-plus w-5 text-center text-[#0260a8]"></i>
-          <span>Reception Desk</span>
-        </a>
-        <a href="<?= $triageBase ?>?tab=triage" class="flex items-center gap-3 px-4 py-3 hover:bg-[#d9ecfa] transition">
-          <span class="font-mono text-slate-400 font-bold w-4">2.</span>
-          <i class="fa-solid fa-stethoscope w-5 text-center text-[#0260a8]"></i>
-          <span>Triage &amp; Vitals</span>
-          <?php if ($pendingTriage > 0): ?>
-            <span class="ml-auto px-1.5 py-0.5 bg-rose-500 text-white rounded-full text-[10px] font-bold"><?= $pendingTriage ?></span>
-          <?php endif; ?>
-        </a>
-        <a href="<?= $triageBase ?>?tab=consultation" class="flex items-center gap-3 px-4 py-3 hover:bg-[#d9ecfa] transition">
-          <span class="font-mono text-slate-400 font-bold w-4">3.</span>
-          <i class="fa-solid fa-user-doctor w-5 text-center text-[#0260a8]"></i>
-          <span>Doctor Workstation</span>
-        </a>
-        <a href="<?= $triageBase ?>?tab=laboratory" class="flex items-center gap-3 px-4 py-3 hover:bg-[#d9ecfa] transition">
-          <span class="font-mono text-slate-400 font-bold w-4">4.</span>
-          <i class="fa-solid fa-flask w-5 text-center text-[#0260a8]"></i>
-          <span>Pathology Lab</span>
-        </a>
-        <a href="<?= $triageBase ?>?tab=pharmacy" class="flex items-center gap-3 px-4 py-3 hover:bg-[#d9ecfa] transition">
-          <span class="font-mono text-slate-400 font-bold w-4">5.</span>
-          <i class="fa-solid fa-capsules w-5 text-center text-[#0260a8]"></i>
-          <span>Dispensary &amp; Stock</span>
-        </a>
-        <a href="<?= $triageBase ?>?tab=billing" class="flex items-center gap-3 px-4 py-3 hover:bg-[#d9ecfa] transition">
-          <span class="font-mono text-slate-400 font-bold w-4">6.</span>
-          <i class="fa-solid fa-receipt w-5 text-center text-[#0260a8]"></i>
-          <span>Cashier &amp; Receipt</span>
-        </a>
-        <a href="<?= $triageBase ?>?tab=settings" class="flex items-center gap-3 px-4 py-3 hover:bg-[#d9ecfa] transition">
-          <span class="font-mono text-slate-400 font-bold w-4">7.</span>
-          <i class="fa-solid fa-gear w-5 text-center text-[#0260a8]"></i>
-          <span>Settings</span>
-        </a>
-        <a href="<?= $logoutUrl ?>" onclick="return confirm('Sign out of IHMS CareFlow?');" class="flex items-center gap-3 px-4 py-3 text-rose-700 hover:bg-rose-100 transition font-bold">
-          <span class="font-mono text-rose-400 font-bold w-4">8.</span>
-          <i class="fa-solid fa-right-from-bracket w-5 text-center text-rose-600"></i>
-          <span>Logout</span>
-        </a>
-      </nav>
-
-      <!-- Sidebar Status -->
-      <div class="p-3 bg-[#e2effa] border-t border-[#c6e1f8] text-[10px] text-slate-500 font-mono space-y-0.5">
-        <div class="text-emerald-700 font-bold flex items-center gap-1.5">
-          <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>MySQL: Connected (3306)</span>
-        </div>
-        <div>Database: <strong>ihms_db</strong></div>
-        <div>PHP: <strong>8.x PDO</strong></div>
-      </div>
-    </aside>
-
-    <!-- MAIN DASHBOARD CONTENT -->
-    <main class="flex-1 space-y-6">
-
-      <!-- KPI METRIC CARDS -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white rounded-2xl p-4 border border-[#c7e0f6] shadow-xs">
-          <div class="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Total Patients</span>
-            <i class="fa-solid fa-hospital-user text-blue-600"></i>
-          </div>
-          <div class="text-2xl font-black text-slate-900 mt-2"><?= number_format($totalPatients) ?></div>
-          <p class="text-[11px] text-emerald-600 font-bold mt-1">&uarr; OPD Intake Registry</p>
-        </div>
-
-        <div class="bg-white rounded-2xl p-4 border border-[#c7e0f6] shadow-xs">
-          <div class="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Triage &amp; Consult</span>
-            <i class="fa-solid fa-stethoscope text-amber-600"></i>
-          </div>
-          <div class="text-2xl font-black text-slate-900 mt-2"><?= $pendingTriage + $inConsultation ?></div>
-          <p class="text-[11px] text-amber-600 font-bold mt-1"><?= $pendingTriage ?> waiting in triage</p>
-        </div>
-
-        <div class="bg-white rounded-2xl p-4 border border-[#c7e0f6] shadow-xs">
-          <div class="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Lab &amp; Pharmacy</span>
-            <i class="fa-solid fa-flask-vial text-purple-600"></i>
-          </div>
-          <div class="text-2xl font-black text-slate-900 mt-2"><?= $labPending + $pharmacyPending ?></div>
-          <p class="text-[11px] text-purple-600 font-bold mt-1"><?= $labPending ?> lab, <?= $pharmacyPending ?> rx orders</p>
-        </div>
-
-        <div class="bg-white rounded-2xl p-4 border border-[#c7e0f6] shadow-xs">
-          <div class="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Revenue Settled</span>
-            <i class="fa-solid fa-receipt text-emerald-600"></i>
-          </div>
-          <div class="text-2xl font-black text-emerald-700 mt-2">KES <?= number_format($todayRevenue, 0) ?></div>
-          <p class="text-[11px] text-slate-500 font-mono mt-1">Cleared POS &amp; M-Pesa</p>
-        </div>
-      </div>
-
-      <!-- WORKFLOW STEPPER BAR -->
-      <div class="bg-white rounded-2xl p-5 border border-[#c7e0f6] shadow-xs">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Integrated OPD Clinical Pipeline</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center text-xs">
-          <a href="<?= $triageBase ?>?tab=registration" class="p-2.5 rounded-xl bg-blue-50 border border-blue-200 hover:bg-blue-100 transition">
-            <span class="font-bold text-blue-900 block">1. Reception</span>
-            <span class="text-[10px] text-blue-600">Intake &amp; OPD No</span>
-          </a>
-          <a href="<?= $triageBase ?>?tab=triage" class="p-2.5 rounded-xl bg-amber-50 border border-amber-200 hover:bg-amber-100 transition">
-            <span class="font-bold text-amber-900 block">2. Triage</span>
-            <span class="text-[10px] text-amber-600">MEWS &amp; Vitals</span>
-          </a>
-          <a href="<?= $triageBase ?>?tab=consultation" class="p-2.5 rounded-xl bg-purple-50 border border-purple-200 hover:bg-purple-100 transition">
-            <span class="font-bold text-purple-900 block">3. Doctor</span>
-            <span class="text-[10px] text-purple-600">EMR &amp; Orders</span>
-          </a>
-          <a href="<?= $triageBase ?>?tab=laboratory" class="p-2.5 rounded-xl bg-sky-50 border border-sky-200 hover:bg-sky-100 transition">
-            <span class="font-bold text-sky-900 block">4. Lab</span>
-            <span class="text-[10px] text-sky-600">Pathology Test</span>
-          </a>
-          <a href="<?= $triageBase ?>?tab=pharmacy" class="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition">
-            <span class="font-bold text-indigo-900 block">5. Dispensary</span>
-            <span class="text-[10px] text-indigo-600">Stock &amp; Meds</span>
-          </a>
-          <a href="<?= $triageBase ?>?tab=billing" class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition">
-            <span class="font-bold text-emerald-900 block">6. Billing</span>
-            <span class="text-[10px] text-emerald-600">Receipt &amp; POS</span>
-          </a>
-        </div>
-      </div>
-
-      <!-- RECENT OUTPATIENTS QUEUE TABLE -->
-      <div class="bg-white rounded-2xl border border-[#c7e0f6] shadow-xs overflow-hidden">
-        <div class="p-4 bg-[#d9ecfa] border-b border-[#c7e0f6] flex items-center justify-between">
-          <h3 class="text-sm font-bold text-[#0f4e89] flex items-center gap-2">
-            <i class="fa-solid fa-users"></i>
-            <span>Recent Outpatient Registrations &amp; Encounters</span>
-          </h3>
-          <a href="<?= $triageBase ?>?tab=registration" class="text-xs text-blue-700 hover:underline font-bold">
-            + New Registration
-          </a>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs text-left">
-            <thead class="bg-slate-50 text-slate-500 uppercase font-bold border-b border-slate-200">
-              <tr>
-                <th class="p-3">OPD Number</th>
-                <th class="p-3">Patient Name</th>
-                <th class="p-3">Gender / Age</th>
-                <th class="p-3">Phone</th>
-                <th class="p-3">Status</th>
-                <th class="p-3 text-right">Quick Action</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              <?php foreach ($recentPatients as $pat): 
-                $dobYear = !empty($pat['dob']) ? (int)date('Y', strtotime($pat['dob'])) : 1994;
-                $age = (int)date('Y') - $dobYear;
-              ?>
-                <tr class="hover:bg-slate-50 transition">
-                  <td class="p-3 font-mono font-bold text-blue-700"><?= htmlspecialchars($pat['opd_number']) ?></td>
-                  <td class="p-3 font-semibold text-slate-900"><?= htmlspecialchars($pat['full_name']) ?></td>
-                  <td class="p-3 text-slate-600"><?= htmlspecialchars($pat['gender']) ?>, <?= $age ?>y</td>
-                  <td class="p-3 font-mono text-slate-600"><?= htmlspecialchars($pat['phone']) ?></td>
-                  <td class="p-3">
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?= $pat['current_status'] === 'Discharged' ? 'bg-slate-100 text-slate-700' : ($pat['current_status'] === 'Triaged' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800') ?>">
-                      <?= htmlspecialchars($pat['current_status']) ?>
-                    </span>
-                  </td>
-                  <td class="p-3 text-right space-x-1.5">
-                    <a href="<?= $triageBase ?>?tab=consultation&patient_id=<?= (int)$pat['patient_id'] ?>" class="px-2.5 py-1 bg-[#06559d] hover:bg-[#05447e] text-white rounded-md text-[11px] font-bold transition">
-                      Doctor
-                    </a>
-                    <a href="<?= $receiptBase ?>?patient_id=<?= (int)$pat['patient_id'] ?>" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-bold transition">
-                      Receipt
-                    </a>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-    </main>
+    <?php endif; ?>
   </div>
 
-  <footer class="bg-slate-900 border-t border-slate-800 text-slate-400 text-xs py-3 px-6 text-center font-mono">
-    AfyaSmart • Integrated Hospital Management System
-  </footer>
-</body>
-</html>
+  <!-- KPI Metric Cards (Automated Real-Time Dynamic Counting) -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
+      <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Total Patients</span>
+      <strong class="text-2xl font-black <?= $isDarkBlue ? 'text-sky-400' : 'text-[#06559d]' ?> mt-1 block"><?= $autoTotalPatients ?></strong>
+      <span class="text-[10px] text-emerald-400 font-bold">&check; In Master Index</span>
+    </div>
+    <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
+      <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Triage Queue</span>
+      <strong class="text-2xl font-black text-emerald-400 mt-1 block"><?= $autoTriageQueue ?></strong>
+      <span class="text-[10px] <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?> font-medium">Bio-signals Ready</span>
+    </div>
+    <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
+      <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Consultations</span>
+      <strong class="text-2xl font-black text-sky-400 mt-1 block"><?= $autoConsultations ?></strong>
+      <span class="text-[10px] <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?> font-medium">Doctor on Duty</span>
+    </div>
+    <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
+      <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Lab Specimen</span>
+      <strong class="text-2xl font-black text-purple-400 mt-1 block"><?= $autoLabSpecimens ?></strong>
+      <span class="text-[10px] text-purple-300 font-bold">mRDT &bull; CBC</span>
+    </div>
+    <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
+      <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Pharmacy Stock</span>
+      <strong class="text-2xl font-black text-amber-400 mt-1 block"><?= number_format($autoPharmacyStock) ?></strong>
+      <span class="text-[10px] text-emerald-400 font-bold">Formulary Active</span>
+    </div>
+    <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> p-3.5 rounded-xl border shadow-2xs">
+      <span class="<?= $isDarkBlue ? 'text-blue-300' : 'text-slate-400' ?> text-[11px] block font-semibold uppercase">Daily Revenue</span>
+      <strong class="text-xl font-black text-emerald-400 mt-1 block font-mono">KES <?= number_format($autoDailyRevenue, 2) ?></strong>
+      <span class="text-[10px] text-sky-300 font-bold">M-Pesa + Cash</span>
+    </div>
+  </div>
+
+  <!-- NORMALIZED CLINICAL WORKFLOW PIPELINE -->
+  <div class="bg-gradient-to-r <?= $isDarkBlue ? 'from-[#061e3e] via-[#0b2b52] to-[#04152d] border border-[#1b3b6f]' : 'from-[#0260a8] to-[#0c477d]' ?> text-white p-5 rounded-2xl shadow-sm space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+      <div>
+        <span class="font-bold uppercase tracking-wider text-blue-100 flex items-center gap-2 text-xs">
+          <i class="fa-solid fa-arrows-split-up-and-left text-sky-300"></i> Normalized Clinical Workflow Pipeline
+        </span>
+        <p class="text-[11px] text-blue-200 mt-0.5">Real-time multi-department patient movement across all 6 stages of care delivery.</p>
+      </div>
+      <span class="text-[10px] font-mono bg-white/10 px-2.5 py-1 rounded-full text-blue-100 font-bold border border-white/15">
+        Active Queue: <?= count($_SESSION['patients']) ?> Patients
+      </span>
+    </div>
+
+    <!-- Pipeline 6-Step Visual Bar -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
+      <?php foreach ($stages as $stageKey => $meta): ?>
+        <?php
+          $countInStage = 0;
+          foreach ($_SESSION['patients'] as $p) {
+            if (($p['current_status'] ?? '') === $stageKey) {
+              $countInStage++;
+            }
+          }
+          $isStageActive = ($selectedPatient && ($selectedPatient['current_status'] ?? '') === $stageKey);
+        ?>
+        <a href="<?= $meta['page'] ?>?patient_id=<?= $activePatientId ?>" class="p-3 rounded-xl transition border text-left flex flex-col justify-between group <?= $isStageActive ? 'bg-white text-slate-900 border-white shadow-lg ring-2 ring-emerald-400' : 'bg-white/10 hover:bg-white/20 text-white border-white/15' ?>">
+          <div class="flex items-center justify-between">
+            <i class="fa-solid <?= $meta['icon'] ?> text-sm <?= $isStageActive ? 'text-[#06559d]' : 'text-sky-300' ?>"></i>
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full <?= $countInStage > 0 ? ($isStageActive ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-400 text-slate-900') : ($isStageActive ? 'bg-slate-100 text-slate-500' : 'bg-white/10 text-blue-200') ?>">
+              <?= $countInStage ?>
+            </span>
+          </div>
+          <div class="mt-2">
+            <strong class="text-xs block leading-tight <?= $isStageActive ? 'text-slate-900' : 'text-white' ?>"><?= $meta['title'] ?></strong>
+            <span class="text-[10px] <?= $isStageActive ? 'text-slate-500' : 'text-blue-200' ?> mt-0.5 block"><?= $stageKey ?></span>
+          </div>
+        </a>
+      <?php endforeach; ?>
+    </div>
+  </div>
+
+  <!-- Active Patients In Lifecycle Table -->
+  <div class="<?= $isDarkBlue ? 'bg-[#0c2340] border-[#1b3b6f]' : 'bg-white border-[#c7e0f6]' ?> rounded-2xl p-5 border shadow-2xs space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b <?= $isDarkBlue ? 'border-[#1b3b6f]' : 'border-slate-100' ?> pb-3">
+      <div>
+        <h3 class="font-bold text-sm <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?> flex items-center gap-2">
+          <i class="fa-solid fa-users text-[#06559d]"></i> Live Patient Flow Through Care Lifecycle
+        </h3>
+        <p class="text-xs <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?>">Real-time queue tracking current clinic location and immediate departmental action routing.</p>
+      </div>
+      <a href="registration.php" class="px-3 py-1.5 bg-[#06559d] hover:bg-[#05437d] text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs">
+        <i class="fa-solid fa-plus text-[10px]"></i><span>Admit Patient</span>
+      </a>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead>
+          <tr class="<?= $isDarkBlue ? 'bg-[#07162c] text-slate-300' : 'bg-slate-50 text-slate-600' ?> border-b <?= $isDarkBlue ? 'border-[#1b3b6f]' : 'border-slate-200' ?>">
+            <th class="p-2.5 font-bold">OPD #</th>
+            <th class="p-2.5 font-bold">Patient Name</th>
+            <th class="p-2.5 font-bold">Scheme</th>
+            <th class="p-2.5 font-bold">Current Department</th>
+            <th class="p-2.5 font-bold">Status Badge</th>
+            <th class="p-2.5 font-bold text-right">Direct Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y <?= $isDarkBlue ? 'divide-[#1b3b6f] text-slate-200' : 'divide-slate-100 text-slate-700' ?>">
+          <?php foreach ($_SESSION['patients'] as $p): ?>
+            <?php
+              $status = $p['current_status'] ?? 'Registered';
+              $statusStyles = [
+                'Registered'       => ['badge' => 'bg-blue-100 text-blue-800',       'next_label' => 'Route to Triage',      'next_page' => 'triage.php',       'next_stage' => 'Triaged'],
+                'Triaged'          => ['badge' => 'bg-rose-100 text-rose-800',       'next_label' => 'Route to Doctor',      'next_page' => 'consultation.php', 'next_stage' => 'In_Consultation'],
+                'In_Consultation'  => ['badge' => 'bg-indigo-100 text-indigo-800',   'next_label' => 'Send to Lab',          'next_page' => 'lab.php',          'next_stage' => 'Lab_Pending'],
+                'Lab_Pending'      => ['badge' => 'bg-purple-100 text-purple-800',   'next_label' => 'Send to Pharmacy',     'next_page' => 'pharmacy.php',     'next_stage' => 'Pharmacy_Pending'],
+                'Pharmacy_Pending' => ['badge' => 'bg-amber-100 text-amber-800',     'next_label' => 'Route to Billing',     'next_page' => 'billing.php',      'next_stage' => 'Billing_Pending'],
+                'Billing_Pending'  => ['badge' => 'bg-emerald-100 text-emerald-800', 'next_label' => 'Issue Receipt',       'next_page' => 'receipt.php',      'next_stage' => 'Discharged'],
+                'Discharged'       => ['badge' => 'bg-slate-200 text-slate-800',     'next_label' => 'View Receipt',         'next_page' => 'receipt.php',      'next_stage' => 'Discharged'],
+              ];
+              $st = $statusStyles[$status] ?? $statusStyles['Registered'];
+              $isSelected = ($p['patient_id'] === $activePatientId);
+            ?>
+            <tr class="<?= $isSelected ? ($isDarkBlue ? 'bg-blue-950/40' : 'bg-blue-50/70 font-semibold') : ($isDarkBlue ? 'hover:bg-[#123158]' : 'hover:bg-slate-50') ?> transition">
+              <td class="p-2.5 font-mono text-[11px] <?= $isDarkBlue ? 'text-sky-300' : 'text-[#06559d]' ?>"><?= htmlspecialchars($p['opd_number']) ?></td>
+              <td class="p-2.5 font-bold <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?>">
+                <a href="<?= $st['next_page'] ?>?patient_id=<?= $p['patient_id'] ?>" class="hover:underline flex items-center gap-1.5">
+                  <span><?= htmlspecialchars($p['full_name']) ?></span>
+                  <?php if ($isSelected): ?>
+                    <span class="text-[9px] px-1.5 py-0.2 bg-[#06559d] text-white rounded">Active</span>
+                  <?php endif; ?>
+                </a>
+              </td>
+              <td class="p-2.5 text-[11px]"><?= htmlspecialchars($p['payment_scheme']) ?></td>
+              <td class="p-2.5">
+                <span class="capitalize"><?= str_replace('_', ' ', $status) ?></span>
+              </td>
+              <td class="p-2.5">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?= $st['badge'] ?>">
+                  <?= htmlspecialchars($status) ?>
+                </span>
+              </td>
+              <td class="p-2.5 text-right">
+                <div class="inline-flex items-center gap-1">
+                  <a href="<?= $st['next_page'] ?>?patient_id=<?= $p['patient_id'] ?>" class="px-2.5 py-1 rounded-lg bg-[#06559d] hover:bg-[#00407a] text-white text-[11px] font-bold transition">
+                    <?= $st['next_label'] ?>
+                  </a>
+                  <?php if ($status !== 'Discharged'): ?>
+                    <a href="dashboard.php?action=transition_stage&patient_id=<?= $p['patient_id'] ?>&to_stage=<?= urlencode($st['next_stage']) ?>&return_page=dashboard.php" title="Fast 1-click stage advance" class="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition">
+                      &rarr;
+                    </a>
+                  <?php endif; ?>
+                </div>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<?php require_once $baseDir . '/footer.php'; ?>

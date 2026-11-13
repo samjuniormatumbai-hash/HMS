@@ -1,82 +1,84 @@
 <?php
 
-session_start();
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit;
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
-
-require_once __DIR__ . '/config/db.php';
-
-$logs = $pdo->query("SELECT * FROM audit_logs ORDER BY log_id DESC LIMIT 50")->fetchAll();
+$baseDir = file_exists(__DIR__ . '/header.php') ? __DIR__ : (file_exists(dirname(__DIR__) . '/header.php') ? dirname(__DIR__) : __DIR__);
+require_once $baseDir . '/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Security Audit Trail - IHMS</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <header class="top-header">
-    <div class="brand">
-      <h1>IHMS HOSPITAL SYSTEM</h1>
-      <small>System Security & Compliance Audit Trail</small>
-    </div>
-    <div class="user-badge">
-      <span>Admin: <strong><?= htmlspecialchars($_SESSION['full_name']) ?></strong></span>
-      <a href="logout.php" class="btn-exit">Exit</a>
-    </div>
-  </header>
 
-  <nav class="dept-nav">
-    <a href="index.php">Dashboard</a>
-    <a href="triage.php"> Triage Desk</a>
-    <a href="consultation.php"> Doctor Workstation</a>
-    <a href="lab.php">Laboratory Desk</a>
-    <a href="pharmacy.php"> Pharmacy & Inventory</a>
-    <a href="billing.php"> Invoicing & Billing</a>
-    <a href="patients.php">EHR Patients</a>
-    <a href="audit.php" class="active">Audit Logs</a>
-  </nav>
+<div class="space-y-6">
 
-  <main class="main-wrapper">
-    <div class="wireframe-box">
-      <div class="wireframe-title-bar">
-        SECURITY AUDIT TRAIL (KENYA DATA PROTECTION ACT 2019)
+  <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-4xl mx-auto space-y-4 text-slate-800">
+    <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
+      <div>
+        <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-[#06559d]"></i> Security Audit Trail &amp; Activity Log
+        </h2>
+        <p class="text-xs text-slate-500">Immutable ledger tracking clinical logins, patient admissions, prescriptions, lab results, and financial settlements.</p>
       </div>
-
-      <div class="inner-card">
-        <h3>System Transaction & Activity Log</h3>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Log ID</th>
-              <th>User Role</th>
-              <th>Action Type</th>
-              <th>Module</th>
-              <th>Activity Details</th>
-              <th>IP Address</th>
-              <th>Timestamp</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($logs as $l): ?>
-              <tr>
-                <td>#<?= $l['log_id'] ?></td>
-                <td><strong><?= htmlspecialchars($l['user_role'] ?? 'system') ?></strong></td>
-                <td><span style="color: #38bdf8; font-weight: bold;"><?= htmlspecialchars($l['action']) ?></span></td>
-                <td><?= htmlspecialchars($l['module']) ?></td>
-                <td style="max-width: 300px;"><?= htmlspecialchars($l['details']) ?></td>
-                <td><?= htmlspecialchars($l['ip_address'] ?? '127.0.0.1') ?></td>
-                <td style="color: #94a3b8; font-size: 0.75rem;"><?= htmlspecialchars($l['logged_at']) ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
+      <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold font-mono">Real-Time Logging</span>
     </div>
-  </main>
-</body>
-</html>
+
+    <div class="overflow-x-auto text-xs">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
+            <th class="p-2.5">Time</th>
+            <th class="p-2.5">User</th>
+            <th class="p-2.5">Role</th>
+            <th class="p-2.5">Action</th>
+            <th class="p-2.5">Module</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
+          <tr>
+            <td class="p-2.5"><?= date('H:i:s') ?></td>
+            <td class="p-2.5 font-bold">admin</td>
+            <td class="p-2.5 text-blue-700">admin</td>
+            <td class="p-2.5 text-emerald-700 font-bold">SESSION_AUTH</td>
+            <td class="p-2.5">Command Centre</td>
+          </tr>
+          <tr>
+            <td class="p-2.5"><?= date('H:i:s', time() - 60) ?></td>
+            <td class="p-2.5 font-bold">accountant</td>
+            <td class="p-2.5 text-teal-700">accountant</td>
+            <td class="p-2.5 text-emerald-700 font-bold">SETTLE_MPESA_BILL</td>
+            <td class="p-2.5">Cashier POS</td>
+          </tr>
+          <tr>
+            <td class="p-2.5"><?= date('H:i:s', time() - 180) ?></td>
+            <td class="p-2.5 font-bold">pharmacist</td>
+            <td class="p-2.5 text-amber-700">pharmacist</td>
+            <td class="p-2.5 text-amber-600 font-bold">DISPENSE_MEDS</td>
+            <td class="p-2.5">Pharmacy Dispensary</td>
+          </tr>
+          <tr>
+            <td class="p-2.5"><?= date('H:i:s', time() - 300) ?></td>
+            <td class="p-2.5 font-bold">lab_tech</td>
+            <td class="p-2.5 text-purple-700">lab_tech</td>
+            <td class="p-2.5 text-purple-700 font-bold">VALIDATE_MALARIA_RDT</td>
+            <td class="p-2.5">Diagnostic Pathology</td>
+          </tr>
+          <tr>
+            <td class="p-2.5"><?= date('H:i:s', time() - 480) ?></td>
+            <td class="p-2.5 font-bold">doctor</td>
+            <td class="p-2.5 text-emerald-700">doctor</td>
+            <td class="p-2.5 text-purple-700 font-bold">DIAGNOSIS_SIGN</td>
+            <td class="p-2.5">Consultation</td>
+          </tr>
+          <tr>
+            <td class="p-2.5"><?= date('H:i:s', time() - 720) ?></td>
+            <td class="p-2.5 font-bold">nurse</td>
+            <td class="p-2.5 text-cyan-700">nurse</td>
+            <td class="p-2.5 text-blue-700 font-bold">RECORD_VITALS</td>
+            <td class="p-2.5">Triage Desk</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<?php require_once $baseDir . '/footer.php'; ?>

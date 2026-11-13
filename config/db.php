@@ -1,28 +1,42 @@
 <?php
 
-function getIHMSConnection(): ?PDO {
-    $candidates = [
-        ['host' => '127.0.0.1', 'port' => 3306],
-        ['host' => '127.0.0.1', 'port' => 3307],
-        ['host' => '127.0.0.1', 'port' => 3308],
-        ['host' => 'localhost', 'port' => 3306],
-        ['host' => 'localhost', 'port' => 3307],
-    ];
 
-    $options = [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ];
+if (file_exists(__DIR__ . '/db_connect.php')) {
+    require_once __DIR__ . '/db_connect.php';
+} elseif (file_exists(__DIR__ . '/config/db_connect.php')) {
+    require_once __DIR__ . '/config/db_connect.php';
+} elseif (file_exists(__DIR__ . '/config/db.php')) {
+    require_once __DIR__ . '/config/db.php';
+}
 
-    foreach ($candidates as $c) {
-        $h = $c['host'];
-        $p = $c['port'];
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+    $pdo = null;
+    if (class_exists('Database')) {
         try {
-            $dsn = "mysql:host={$h};port={$p};dbname=ihms_db;charset=utf8mb4";
-            return new PDO($dsn, 'root', '', $options);
-        } catch (PDOException $e) {
-            continue;
+            $pdo = Database::getConnection();
+        } catch (\Throwable $e) {
+            $pdo = null;
         }
     }
-    return null;
+    if (!$pdo) {
+        foreach ([3306, 3307, 3308] as $port) {
+            try {
+                $pdo = new PDO(
+                    "mysql:host=127.0.0.1;port={$port};charset=utf8mb4",
+                    'root',
+                    '',
+                    [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                        PDO::ATTR_TIMEOUT => 2,
+                    ]
+                );
+                $pdo->exec("CREATE DATABASE IF NOT EXISTS `ihms_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                $pdo->exec("USE `ihms_db`");
+                break;
+            } catch (\Throwable $e) {
+                $pdo = null;
+            }
+        }
+    }
 }
