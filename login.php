@@ -1,5 +1,4 @@
 <?php
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -74,7 +73,7 @@ $systemUsers = [
 
 $error = '';
 $success = '';
-$mode = (isset($_GET['mode']) && $_GET['mode'] === 'register') ? 'register' : 'login';
+$mode = in_array($_GET['mode'] ?? '', ['register', 'forgot']) ? $_GET['mode'] : 'login';
 
 // Role Aliases & Mapping
 $roleAliasMap = [
@@ -385,6 +384,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sep = (strpos($safeTarget, '?') !== false) ? '&' : '?';
             redirectWithBase($safeTarget . $sep . "msg=registered");
         }
+    } elseif ($action === 'forgot_password') {
+        $mode = 'forgot';
+        $fpUser = strtolower(trim($_POST['username'] ?? ''));
+        $fpPass = trim($_POST['new_password'] ?? '');
+        $fpConfirm = trim($_POST['confirm_password'] ?? '');
+
+        if (empty($fpUser) || empty($fpPass)) {
+            $error = 'Please enter your username and a new password.';
+        } elseif ($fpPass !== $fpConfirm) {
+            $error = 'New passwords do not match. Please confirm your password.';
+        } else {
+            $targetProfile = null;
+
+            // 1. Check session registered users
+            if (!empty($_SESSION['registered_users'][$fpUser])) {
+                $targetProfile = $_SESSION['registered_users'][$fpUser];
+            }
+
+            // 2. Check MySQL users table
+            if (!$targetProfile && $pdo) {
+                try {
+                    $stmt = $pdo->prepare("SELECT * FROM users WHERE LOWER(username) = ? LIMIT 1");
+                    $stmt->execute([$fpUser]);
+                    $dbRow = $stmt->fetch();
+                    if ($dbRow) {
+                        $dbRole = strtolower($dbRow['role'] ?? 'admin');
+                        if (!isset($roleTabMap[$dbRole])) {
+                            $dbRole = $roleAliasMap[$dbRole] ?? 'admin';
+                        }
+                        $destInfo = $roleTabMap[$dbRole] ?? ['file' => 'dashboard.php', 'tab' => 'dashboard'];
+                        $targetProfile = [
+                            'id' => (int)($dbRow['id'] ?? $dbRow['user_id'] ?? 10),
+                            'username' => $dbRow['username'],
+                            'full_name' => $dbRow['full_name'] ?? ucfirst($dbRow['username']),
+                            'role' => $dbRole,
+                            'department' => !empty($dbRow['department']) ? $dbRow['department'] : ($roleDefaultDepts[$dbRole] ?? 'Hospital Administration'),
+                            'home' => $destInfo['file'],
+                            'tab' => $destInfo['tab'],
+                        ];
+                    }
+                } catch (\Throwable $e) {}
+            }
+
+            // 3. Check built-in generic system roles & aliases
+            if (!$targetProfile) {
+                $resolvedRole = $roleAliasMap[$fpUser] ?? (isset($systemUsers[$fpUser]) ? $fpUser : null);
+                if ($resolvedRole && isset($systemUsers[$resolvedRole])) {
+                    $targetProfile = $systemUsers[$resolvedRole];
+                    $destInfo = $roleTabMap[$targetProfile['role']] ?? ['file' => 'dashboard.php', 'tab' => 'dashboard'];
+                    $targetProfile['home'] = $destInfo['file'];
+                    $targetProfile['tab'] = $destInfo['tab'];
+                }
+            }
+
+            if (!$targetProfile) {
+                $error = 'Account "' . htmlspecialchars($fpUser) . '" was not found. Use Create Account to register.';
+            } else {
+                // Update password in MySQL if online
+                if ($pdo) {
+                    try {
+                        $newHash = password_hash($fpPass, PASSWORD_BCRYPT);
+                        $upd = $pdo->prepare("UPDATE users SET password_hash = ? WHERE LOWER(username) = ?");
+                        $upd->execute([$newHash, $fpUser]);
+                    } catch (\Throwable $e) {}
+                }
+
+                // Update password in session roster
+                $targetProfile['password'] = $fpPass;
+                if (!isset($_SESSION['registered_users'])) {
+                    $_SESSION['registered_users'] = [];
+                }
+                $_SESSION['registered_users'][$fpUser] = $targetProfile;
+
+                $_POST['username'] = $targetProfile['username'];
+                $success = 'Password updated for "' . htmlspecialchars($targetProfile['username']) . '" (' . htmlspecialchars($targetProfile['role']) . '). You can now sign in.';
+                $mode = 'login';
+            }
+        }
     }
 }
 ?>
@@ -411,12 +488,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div class="mb-5 text-center">
     <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/80 border border-blue-200/80 text-[#0c477d] text-xs font-bold tracking-tight shadow-xs">
       <span class="w-2 h-2 rounded-full bg-[#0260a8] animate-pulse"></span>
-      <span>AfyaSmart &bull; Clinical Outpatient Portal</span>
+      <span>AfyaSmart&bull; Clinical Outpatient Portal</span>
     </div>
   </div>
 
   <!-- THE LOGIN CARD - EXACT 1:1 MATCH TO IMAGE (image_185d23c7.png) -->
   <div class="w-full max-w-[480px] bg-white rounded-2xl shadow-xl shadow-blue-900/5 border border-[#d9e6f2] p-8 sm:p-10 transition-all duration-200">
+    <!-- Navigation Tabs: Sign In | Create Account | Forgot Password -->
+    <div class="grid grid-cols-3 gap-1 p-1 bg-[#f0f7fd] border border-[#d9e6f2] rounded-xl mb-6 text-xs font-bold">
+      
+    </div>
 
     <?php if ($mode === 'login'): ?>
       <!-- Header -->
@@ -433,7 +514,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <?php if (isset($_GET['logout'])): ?>
         <div class="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
           <i class="fa-solid fa-circle-check text-emerald-600 shrink-0"></i>
-          <span>You have signed out of AfyaSmart IHMS. Enter credentials or select a role below to sign back in.</span>
+          <span>You have signed out of AfyaSmart IHMS. Enter credentials to sign back in.</span>
+        </div>
+      <?php endif; ?>
+
+      <?php if (!empty($success)): ?>
+        <div class="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+          <i class="fa-solid fa-circle-check text-emerald-600 shrink-0"></i>
+          <span><?= htmlspecialchars($success) ?></span>
         </div>
       <?php endif; ?>
 
@@ -499,22 +587,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           class="w-full py-3.5 px-4 bg-[#0260a8] hover:bg-[#024f8c] active:bg-[#013e6f] text-white font-bold rounded-xl shadow-md shadow-blue-800/20 transition-all duration-150 flex items-center justify-center gap-2 text-base cursor-pointer"
         >
           <span>Sign In</span>
-          <span class="text-lg leading-none">&rarr;</span>
+          
         </button>
 
-        <!-- 4. Sub-link: New here? Create an account -->
-        <div class="text-center text-sm text-[#526b88] pt-2">
-          New here?
-          <a
-            href="login.php?mode=register"
-            class="text-[#0260a8] font-bold underline hover:text-[#024f8c] cursor-pointer"
-          >
-            Create an account
+        <!-- 4. Sub-links: Forgot password? & Create an account -->
+        <div class="flex items-center justify-between text-xs sm:text-sm text-[#526b88] pt-2">
+          <a href="login.php?mode=forgot" class="text-[#0260a8] font-bold hover:underline cursor-pointer">
+            Forgot password?
           </a>
+          <div>
+            New here?
+            <a
+              href="login.php?mode=register"
+              class="text-[#0260a8] font-bold underline hover:text-[#024f8c] cursor-pointer"
+            >
+              Create an account
+            </a>
+          </div>
         </div>
       </form>
 
-    <?php else: ?>
+    <?php elseif ($mode === 'register'): ?>
       <!-- CREATE STAFF ACCOUNT VIEW -->
       <div class="mb-5">
         <h2 class="text-[24px] font-extrabold text-[#0c477d] tracking-tight leading-tight">
@@ -536,12 +629,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <input type="hidden" name="action" value="register">
 
         <div class="border border-[#c8dcee] rounded-xl bg-white px-3.5 py-2.5">
-          <input type="text" name="full_name" required placeholder="Full Name ()" value="<?= htmlspecialchars($_POST['full_name'] ?? '') ?>" class="w-full text-xs font-medium outline-none">
+          <input type="text" name="full_name" required placeholder="Full Name (e.g. Sam Junior)" value="<?= htmlspecialchars($_POST['full_name'] ?? '') ?>" class="w-full text-xs font-medium outline-none">
         </div>
 
         <div class="grid grid-cols-2 gap-2">
           <div class="border border-[#c8dcee] rounded-xl bg-white px-3.5 py-2.5">
-            <input type="text" name="username" required placeholder="Username ()" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" class="w-full text-xs font-medium outline-none">
+            <input type="text" name="username" required placeholder="Username (e.g. admin)" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" class="w-full text-xs font-medium outline-none">
           </div>
           <div class="border border-[#c8dcee] rounded-xl bg-white px-2 py-2">
             <select name="role" id="regRoleSelect" onchange="syncDeptWithRole(this.value)" class="w-full text-xs font-semibold bg-white outline-none">
@@ -564,11 +657,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <button type="submit" class="w-full py-3 px-4 bg-[#0260a8] hover:bg-[#024f8c] text-white font-bold rounded-xl shadow-md text-sm transition cursor-pointer">
-          Create Profile &amp; Sign In &rarr;
+          Create Profile &amp; Sign In;
         </button>
 
         <div class="text-center text-xs text-[#526b88] pt-1">
           Already have an account? <a href="login.php" class="text-[#0260a8] font-bold underline">Sign in</a>
+        </div>
+      </form>
+
+    <?php else: ?>
+      <!-- FORGOT / RESET PASSWORD VIEW -->
+      <div class="mb-5">
+        <h2 class="text-[24px] font-extrabold text-[#0c477d] tracking-tight leading-tight">
+          Reset Forgotten Password
+        </h2>
+        <p class="text-[13px] text-[#526b88] mt-1.5 leading-relaxed font-normal">
+          Enter your staff username to set a new password and regain access.
+        </p>
+      </div>
+
+      <?php if (!empty($error)): ?>
+        <div class="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation text-rose-600 shrink-0"></i>
+          <span><?= htmlspecialchars($error) ?></span>
+        </div>
+      <?php endif; ?>
+
+      <form method="POST" action="login.php?mode=forgot" class="space-y-3.5">
+        <input type="hidden" name="action" value="forgot_password">
+
+        <div class="border border-[#c8dcee] rounded-xl bg-white px-3.5 py-2.5">
+          <input type="text" name="username" required placeholder="Username ()" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" class="w-full text-xs font-medium outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div class="border border-[#c8dcee] rounded-xl bg-white px-3.5 py-2.5">
+            <input type="password" name="new_password" required placeholder="New Password" class="w-full text-xs font-medium outline-none">
+          </div>
+          <div class="border border-[#c8dcee] rounded-xl bg-white px-3.5 py-2.5">
+            <input type="password" name="confirm_password" required placeholder="Confirm Password" class="w-full text-xs font-medium outline-none">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3 px-4 bg-[#0260a8] hover:bg-[#024f8c] text-white font-bold rounded-xl shadow-md text-sm transition cursor-pointer">
+          Reset Password ;
+        </button>
+
+        <div class="text-center text-xs text-[#526b88] pt-1">
+          Remembered your password? <a href="login.php" class="text-[#0260a8] font-bold underline">Back to Sign In</a>
         </div>
       </form>
     <?php endif; ?>
@@ -582,41 +718,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="flex-1 h-px bg-[#d9e6f2]"></div>
     </div>
 
-    <!-- 1-Click Fast Role Quick-Fill -->
-    <div class="bg-[#f2f8fc] border border-[#d2e4f3] rounded-xl p-3">
-      <div class="flex items-center justify-between text-[11px] font-bold text-[#0c477d] mb-2">
-        <span>Quick Role Access:</span>
-      
-      </div>
-      <div class="grid grid-cols-3 gap-1.5 text-[11px] font-semibold">
-        <a href="login.php?quick_role=doctor" onclick="quickFill('doctor', 'doctor123', true); return false;" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-user-doctor text-blue-600"></i>
-          <span>Doctor</span>
-        </a>
-        <a href="login.php?quick_role=nurse" onclick="quickFill('nurse', 'nurse123', true); return false;" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-user-nurse text-blue-600"></i>
-          <span>Nurse</span>
-        </a>
-        <a href="login.php?quick_role=pharmacist" onclick="quickFill('pharmacist', 'pharm123', true); return false;" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-pills text-blue-600"></i>
-          <span>Pharmacy</span>
-        </a>
-        <a href="login.php?quick_role=lab_tech" onclick="quickFill('lab_tech', 'lab123', true); return false;" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-flask text-blue-600"></i>
-          <span>Lab</span>
-        </a>
-        <a href="login.php?quick_role=accountant" onclick="quickFill('accountant', 'cash123', true); return false;" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-receipt text-blue-600"></i>
-          <span>Billing</span>
-        </a>
-        <a href="login.php?quick_role=admin" onclick="quickFill('admin', 'admin123', true); return false;" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-shield-halved text-blue-600"></i>
-          <span>Admin</span>
-        </a>
-      </div>
-    </div>
-
-   
   </div>
 
   <script>

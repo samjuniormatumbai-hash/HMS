@@ -1,5 +1,4 @@
 <?php
-
 ob_start();
 session_start();
 date_default_timezone_set('Africa/Nairobi');
@@ -142,10 +141,11 @@ $aliasMap = [
     'acc' => 'accountant', 'accoun' => 'accountant', 'accountant' => 'accountant', 'billing' => 'accountant', 'cashier' => 'accountant', 'finance' => 'accountant',
 ];
 $authError = '';
-$authMode = (isset($_GET['mode']) && $_GET['mode'] === 'register') ? 'register' : 'login';
+$authSuccess = '';
+$authMode = in_array($_GET['mode'] ?? '', ['register', 'forgot']) ? $_GET['mode'] : 'login';
 
-// Built-in Login & Create Account Processor
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array($_POST['action'], ['login', 'register'])) {
+// Built-in Login, Create Account & Forgot Password Processor
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array($_POST['action'], ['login', 'register', 'forgot_password'])) {
     if ($_POST['action'] === 'login') {
         $reqUser = strtolower(trim((string)($_POST['username'] ?? '')));
         $reqPass = trim((string)($_POST['password'] ?? ''));
@@ -276,6 +276,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array
             header("Location: index.php?tab=" . urlencode($newProfile['tab']) . "&msg=registered");
             exit;
         }
+    } elseif ($_POST['action'] === 'forgot_password') {
+        $authMode = 'forgot';
+        $fpUser = strtolower(trim((string)($_POST['username'] ?? '')));
+        $fpPass = trim((string)($_POST['new_password'] ?? ''));
+        $fpConfirm = trim((string)($_POST['confirm_password'] ?? ''));
+
+        if (empty($fpUser) || empty($fpPass)) {
+            $authError = 'Please enter your username and a new password.';
+        } elseif ($fpPass !== $fpConfirm) {
+            $authError = 'New passwords do not match. Please confirm your password.';
+        } else {
+            $targetProfile = null;
+
+            if (!empty($_SESSION['registered_users'][$fpUser])) {
+                $targetProfile = $_SESSION['registered_users'][$fpUser];
+            }
+
+            if (!$targetProfile && $pdo) {
+                try {
+                    $stmt = $pdo->prepare("SELECT * FROM users WHERE LOWER(username) = ? LIMIT 1");
+                    $stmt->execute([$fpUser]);
+                    $dbRow = $stmt->fetch();
+                    if ($dbRow) {
+                        $dbRole = $aliasMap[strtolower($dbRow['role'] ?? 'admin')] ?? (isset($roleMap[strtolower($dbRow['role'] ?? '')]) ? strtolower($dbRow['role']) : 'admin');
+                        $targetProfile = [
+                            'id' => (int)($dbRow['user_id'] ?? $dbRow['id'] ?? 10),
+                            'username' => $dbRow['username'],
+                            'full_name' => $dbRow['full_name'] ?? ucfirst($dbRow['username']),
+                            'role' => $dbRole,
+                            'department' => !empty($dbRow['department']) ? $dbRow['department'] : ($roleMap[$dbRole]['department'] ?? 'Hospital Administration'),
+                            'tab' => $roleMap[$dbRole]['tab'] ?? 'dashboard',
+                            'home' => $roleMap[$dbRole]['home'] ?? 'dashboard.php',
+                        ];
+                    }
+                } catch (\Throwable $e) {}
+            }
+
+            if (!$targetProfile) {
+                $resolvedRole = $aliasMap[$fpUser] ?? (isset($roleMap[$fpUser]) ? $fpUser : null);
+                if ($resolvedRole && isset($roleMap[$resolvedRole])) {
+                    $targetProfile = $roleMap[$resolvedRole];
+                }
+            }
+
+            if (!$targetProfile) {
+                $authError = 'Account "' . htmlspecialchars($fpUser) . '" was not found. Use Create Account to register.';
+            } else {
+                if ($pdo) {
+                    try {
+                        $newHash = password_hash($fpPass, PASSWORD_BCRYPT);
+                        $upd = $pdo->prepare("UPDATE users SET password_hash = ? WHERE LOWER(username) = ?");
+                        $upd->execute([$newHash, $fpUser]);
+                    } catch (\Throwable $e) {}
+                }
+
+                $targetProfile['password'] = $fpPass;
+                if (!isset($_SESSION['registered_users'])) {
+                    $_SESSION['registered_users'] = [];
+                }
+                $_SESSION['registered_users'][$fpUser] = $targetProfile;
+
+                $_POST['username'] = $targetProfile['username'];
+                $authSuccess = 'Password updated for "' . htmlspecialchars($targetProfile['username']) . '" (' . htmlspecialchars($targetProfile['role']) . '). You can now sign in.';
+                $authMode = 'login';
+            }
+        }
     }
 }
 
@@ -306,7 +372,7 @@ if ($activeTab === 'login') {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><?= $authMode === 'register' ? 'Create Staff Account' : 'Login to Your Account' ?> - AfyaSmart IHMS</title>
+  <title><?= $authMode === 'register' ? 'Create Staff Account' : ($authMode === 'forgot' ? 'Reset Password' : 'Login to Your Account') ?> - AfyaSmart IHMS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -322,11 +388,13 @@ if ($activeTab === 'login') {
   <div class="mb-5 text-center">
     <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/80 border border-blue-200/80 text-[#0c477d] text-xs font-bold tracking-tight shadow-xs">
       <span class="w-2 h-2 rounded-full bg-[#0260a8] animate-pulse"></span>
-      <span>AfyaSmart &bull; Clinical Outpatient Portal</span>
+      <span>AfyaSmart&bull; Clinical Outpatient Portal</span>
     </div>
   </div>
 
   <div class="w-full max-w-[480px] bg-white rounded-2xl shadow-xl shadow-blue-900/5 border border-[#d9e6f2] p-8 sm:p-10 transition-all duration-200">
+    
+
     <?php if ($authMode === 'login'): ?>
       <div class="mb-6">
         <h2 class="text-[26px] sm:text-[28px] font-extrabold text-[#0c477d] tracking-tight leading-tight">
@@ -340,7 +408,14 @@ if ($activeTab === 'login') {
       <?php if (isset($_GET['logout'])): ?>
         <div class="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
           <i class="fa-solid fa-circle-check text-emerald-600 shrink-0"></i>
-          <span>You have signed out of AfyaSmart IHMS. Sign in or select a role below.</span>
+          <span>You have signed out of AfyaSmart IHMS. Sign in to continue.</span>
+        </div>
+      <?php endif; ?>
+
+      <?php if (!empty($authSuccess)): ?>
+        <div class="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+          <i class="fa-solid fa-circle-check text-emerald-600 shrink-0"></i>
+          <span><?= htmlspecialchars($authSuccess) ?></span>
         </div>
       <?php endif; ?>
 
@@ -380,12 +455,15 @@ if ($activeTab === 'login') {
           <span class="text-lg leading-none">&rarr;</span>
         </button>
 
-        <div class="text-center text-sm text-[#526b88] pt-2">
-          New here?
-          <a href="index.php?tab=login&mode=register" class="text-[#0260a8] font-bold underline hover:text-[#024f8c]">Create an account</a>
+        <div class="flex items-center justify-between text-xs sm:text-sm text-[#526b88] pt-2">
+          <a href="index.php?tab=login&mode=forgot" class="text-[#0260a8] font-bold hover:underline">Forgot password?</a>
+          <div>
+            New here?
+            <a href="index.php?tab=login&mode=register" class="text-[#0260a8] font-bold underline hover:text-[#024f8c]">Create an account</a>
+          </div>
         </div>
       </form>
-    <?php else: ?>
+    <?php elseif ($authMode === 'register'): ?>
       <div class="mb-5">
         <h2 class="text-[24px] font-extrabold text-[#0c477d] tracking-tight leading-tight">
           Create Staff Account
@@ -434,7 +512,7 @@ if ($activeTab === 'login') {
         </div>
 
         <button type="submit" class="w-full py-3 px-4 bg-[#0260a8] hover:bg-[#024f8c] text-white font-bold rounded-xl shadow-md text-sm transition cursor-pointer">
-          Create Profile &amp; Sign In &rarr;
+          Create Profile &amp; Sign In ;
         </button>
 
         <div class="text-center text-xs text-[#526b88] pt-1">
@@ -456,6 +534,47 @@ if ($activeTab === 'login') {
           el.value = map[role] || 'Hospital Administration';
         }
       </script>
+    <?php else: ?>
+      <div class="mb-5">
+        <h2 class="text-[24px] font-extrabold text-[#0c477d] tracking-tight leading-tight">
+          Reset Forgotten Password
+        </h2>
+        <p class="text-[13px] text-[#526b88] mt-1.5 leading-relaxed font-normal">
+          Enter your staff username to set a new password and regain access.
+        </p>
+      </div>
+
+      <?php if (!empty($authError)): ?>
+        <div class="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation text-rose-600 shrink-0"></i>
+          <span><?= htmlspecialchars($authError) ?></span>
+        </div>
+      <?php endif; ?>
+
+      <form method="POST" action="index.php?tab=login&mode=forgot" class="space-y-3.5">
+        <input type="hidden" name="action" value="forgot_password">
+
+        <div class="border border-[#c8dcee] rounded-xl bg-white px-3.5 py-2.5">
+          <input type="text" name="username" required placeholder="Username (e.g. admin, doctor, accountant)" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" class="w-full text-xs font-medium outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div class="border border-[#c8dcee] rounded-xl bg-white px-3.5 py-2.5">
+            <input type="password" name="new_password" required placeholder="New Password" class="w-full text-xs font-medium outline-none">
+          </div>
+          <div class="border border-[#c8dcee] rounded-xl bg-white px-3.5 py-2.5">
+            <input type="password" name="confirm_password" required placeholder="Confirm Password" class="w-full text-xs font-medium outline-none">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3 px-4 bg-[#0260a8] hover:bg-[#024f8c] text-white font-bold rounded-xl shadow-md text-sm transition cursor-pointer">
+          Reset Password &rarr;
+        </button>
+
+        <div class="text-center text-xs text-[#526b88] pt-1">
+          Remembered your password? <a href="index.php?tab=login" class="text-[#0260a8] font-bold underline">Back to Sign In</a>
+        </div>
+      </form>
     <?php endif; ?>
 
     <div class="flex items-center gap-3 my-6">
@@ -464,39 +583,6 @@ if ($activeTab === 'login') {
       <div class="flex-1 h-px bg-[#d9e6f2]"></div>
     </div>
 
-    <div class="bg-[#f2f8fc] border border-[#d2e4f3] rounded-xl p-3">
-      <div class="flex items-center justify-between text-[11px] font-bold text-[#0c477d] mb-2">
-        <span>Quick Role Access:</span>
-        <span class="text-[#0260a8] font-mono text-[10px]">Click any role below</span>
-      </div>
-      <div class="grid grid-cols-3 gap-1.5 text-[11px] font-semibold">
-        <a href="index.php?quick_login=doctor" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-user-doctor text-blue-600"></i>
-          <span>Doctor</span>
-        </a>
-        <a href="index.php?quick_login=nurse" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-user-nurse text-blue-600"></i>
-          <span>Nurse</span>
-        </a>
-        <a href="index.php?quick_login=pharmacist" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-pills text-blue-600"></i>
-          <span>Pharmacy</span>
-        </a>
-        <a href="index.php?quick_login=lab_tech" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-flask text-blue-600"></i>
-          <span>Lab</span>
-        </a>
-        <a href="index.php?quick_login=accountant" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-receipt text-blue-600"></i>
-          <span>Billing</span>
-        </a>
-        <a href="index.php?quick_login=admin" class="px-2 py-1.5 bg-white hover:bg-blue-100/60 border border-[#c8dcee] rounded-lg text-[#0c477d] transition text-center cursor-pointer flex items-center justify-center gap-1 shadow-2xs">
-          <i class="fa-solid fa-shield-halved text-blue-600"></i>
-          <span>Admin</span>
-        </a>
-      </div>
-    </div>
-  </div>
 
 </body>
 </html>
@@ -573,10 +659,10 @@ $roleInitialsMap = [
 $userInitials = $roleInitialsMap[$currentUser['role']] ?? strtoupper(substr($currentUser['username'] ?? 'AD', 0, 2));
 
 // Facility Settings State
-if (!isset($_SESSION['facility_settings']) || empty($_SESSION['facility_settings']['hospital_name']) || strpos($_SESSION['facility_settings']['hospital_name'], 'CareFlow') !== false) {
+if (!isset($_SESSION['facility_settings']) || empty($_SESSION['facility_settings']['hospital_name']) || strpos($_SESSION['facility_settings']['hospital_name'], 'CareFlow') !== false || (($_SESSION['facility_settings']['moh_code'] ?? '') === '14892')) {
     $_SESSION['facility_settings'] = [
         'hospital_name'    => 'AfyaSmart Integrated Health Centre',
-        'moh_code'         => '14892',
+        'moh_code'         => '',
         'facility_level'   => '',
         'consultation_fee' => 500.00,
         'triage_high_bp'   => 140,
@@ -774,7 +860,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 8. Save Facility Settings
     if ($action === 'save_settings') {
         $_SESSION['facility_settings']['hospital_name']    = safe_str($_POST['hospital_name'] ?? null, $_SESSION['facility_settings']['hospital_name']);
-        $_SESSION['facility_settings']['moh_code']         = safe_str($_POST['moh_code'] ?? null, $_SESSION['facility_settings']['moh_code']);
+        $_SESSION['facility_settings']['moh_code']         = trim((string)($_POST['moh_code'] ?? ''));
         $_SESSION['facility_settings']['consultation_fee'] = safe_float($_POST['consultation_fee'] ?? null, 500.00);
         $_SESSION['facility_settings']['triage_high_bp']   = safe_int($_POST['triage_high_bp'] ?? null, 140);
         header("Location: index.php?tab=settings&msg=settings_saved");
@@ -898,7 +984,7 @@ foreach ($_SESSION['patients'] as $sp) {
           <span>AfyaSmart</span>
           
         </h1>
-        <p class="text-xs text-blue-100 font-medium">Your Health, Our Priority</p>
+        <p class="text-xs text-blue-100 font-medium">Your Health, Our Priority </p>
       </div>
     </div>
 
@@ -1005,12 +1091,12 @@ foreach ($_SESSION['patients'] as $sp) {
   <div class="bg-blue-900 text-blue-100 text-[11px] px-5 py-1.5 flex flex-wrap items-center justify-between border-b border-blue-800 no-print">
     <div class="flex items-center gap-2 font-mono">
       <span class="h-2 w-2 rounded-full <?= $isDbConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400' ?>"></span>
-      <span> <?= $isDbConnected ? '' : 'Self-Contained Session Storage Mode' ?></span>
-      <span class="text-blue-300 hidden sm:inline">|</span>
-      <span class="hidden sm:inline"></span>
+      
+      
+     
     </div>
     <div class="font-mono text-[10px] text-blue-300">
-      
+    
     </div>
   </div>
 
@@ -1027,7 +1113,7 @@ foreach ($_SESSION['patients'] as $sp) {
             <span><?= $currentUser['role'] === 'admin' ? 'Hospital Operations' : 'My Workstation' ?></span>
           </span>
           <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#06559d] text-white font-mono">
-           
+            <?= $currentUser['role'] === 'admin' ? '' : strtoupper(htmlspecialchars(str_replace('_', ' ', $currentUser['role']))) ?>
           </span>
         </div>
 
@@ -1135,7 +1221,7 @@ foreach ($_SESSION['patients'] as $sp) {
         <?php endif; ?>
       </div>
 
-      
+     
     </aside>
 
     <!-- RIGHT WORKSPACE (Fills all remaining space) -->
@@ -1202,8 +1288,8 @@ foreach ($_SESSION['patients'] as $sp) {
         </div>
       <?php endif; ?>
 
-      <!-- 1. HOSPITAL EXECUTIVE DASHBOARD -->
-      <?php if ($activeTab === 'dashboard'): ?>
+      <!-- 1. HOSPITAL EXECUTIVE DASHBOARD & NORMALIZED CLINICAL PIPELINE -->
+      <?php if ($activeTab === 'dashboard' || $activeTab === 'pipeline'): ?>
         <div class="space-y-6 <?= $isDarkBlue ? 'bg-[#07162c] -m-4 sm:-m-6 p-4 sm:p-6 rounded-3xl border border-[#1b3b6f] text-slate-100 shadow-xl' : '' ?>">
           
           <!-- Executive Header -->
@@ -1213,12 +1299,14 @@ foreach ($_SESSION['patients'] as $sp) {
                 <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold <?= $isDarkBlue ? 'bg-[#0a2f5a] text-sky-200 border border-sky-400/40' : 'bg-[#0260a8] text-white' ?>">
                   <i class="fa-solid fa-crown mr-1"></i> Admin Command Centre
                 </span>
-                <span class="text-xs font-mono <?= $isDarkBlue ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-800' : 'text-emerald-700 bg-emerald-50 border border-emerald-200' ?> px-2 py-0.5 rounded font-semibold">
-                  MOH Code: <?= htmlspecialchars($_SESSION['facility_settings']['moh_code']) ?>
-                </span>
+                <?php if (!empty($_SESSION['facility_settings']['moh_code'])): ?>
+                  <span class="text-xs font-mono <?= $isDarkBlue ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-800' : 'text-emerald-700 bg-emerald-50 border border-emerald-200' ?> px-2 py-0.5 rounded font-semibold">
+                  
+                  </span>
+                <?php endif; ?>
               </div>
               <h2 class="text-xl sm:text-2xl font-bold <?= $isDarkBlue ? 'text-white' : 'text-[#0c477d]' ?> tracking-tight mt-1">
-                Hospital Executive Operations &amp; All Modules Hub
+                Hospital Executive Operations
               </h2>
               <p class="text-xs <?= $isDarkBlue ? 'text-slate-300' : 'text-slate-600' ?>">
                 Centralized administration interface providing immediate oversight and routing across all clinical, diagnostic, and financial modules.
@@ -1228,9 +1316,7 @@ foreach ($_SESSION['patients'] as $sp) {
               <a href="index.php?tab=registration" class="bg-[#0069c8] hover:bg-[#0057a6] text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center gap-2">
                 <i class="fa-solid fa-user-plus"></i><span>Register New Patient</span>
               </a>
-              <a href="index.php?tab=settings" class="<?= $isDarkBlue ? 'bg-[#0c2340] hover:bg-[#123158] text-slate-200 border-[#1b3b6f]' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300' ?> border font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-2xs">
-                <i class="fa-solid fa-gear"></i><span>Settings</span>
-              </a>
+            
             </div>
           </div>
 
@@ -1245,8 +1331,7 @@ foreach ($_SESSION['patients'] as $sp) {
                   <span class="font-extrabold <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?> text-sm"><?= htmlspecialchars($currentUser['full_name']) ?></span>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#06559d] text-white uppercase tracking-wider font-mono"><?= htmlspecialchars($currentUser['role']) ?></span>
                   <span class="text-[11px] text-emerald-400 font-bold inline-flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Active Session
-                  </span>
+                  
                 </div>
                 <p class="text-xs <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?> mt-0.5">
                   Assigned Duty: <strong class="<?= $isDarkBlue ? 'text-slate-200' : 'text-slate-700' ?>"><?= htmlspecialchars($currentUser['department'] ?? 'Hospital Administration') ?></strong>
@@ -1348,13 +1433,13 @@ foreach ($_SESSION['patients'] as $sp) {
                   <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#06559d] text-white uppercase tracking-wider font-mono flex items-center gap-1">
                     <i class="fa-solid fa-arrows-split-up-and-left text-[9px]"></i> Normalized Clinical Workflow Pipeline
                   </span>
-                  <span class="text-xs text-emerald-600 font-bold font-mono">Real-Time Department Transition</span>
-                </div>
+                  
+            </div>
                 <h3 class="text-base sm:text-lg font-bold <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?> mt-1">
-                  Active Outpatient Journey Across 6 Core Hospital Departments
+                  Active Outpatient Journey Across  Core Hospital Departments
                 </h3>
                 <p class="text-xs <?= $isDarkBlue ? 'text-slate-400' : 'text-slate-500' ?>">
-                  Move patients forward in real time: Registration &rarr; Triage Desk &rarr; Doctor Consult &rarr; Laboratory &rarr; Pharmacy &rarr; Billing &rarr; Discharged.
+                
                 </p>
               </div>
 
@@ -1408,15 +1493,15 @@ foreach ($_SESSION['patients'] as $sp) {
                   </select>
                 </div>
                 <div>
-                  <label class="block font-bold mb-1 text-slate-700">Start Stage</label>
+                  <label class="block font-bold mb-1 text-slate-700">Start Department</label>
                   <select id="preset_stage" name="start_stage" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-bold">
-                    <option value="Registered">1. Registration</option>
-                    <option value="Triaged">2. Triage Desk</option>
-                    <option value="In_Consultation">3. Doctor Consult</option>
-                    <option value="Lab_Pending">4. Laboratory</option>
-                    <option value="Pharmacy_Pending">5. Pharmacy</option>
-                    <option value="Billing_Pending">6. Billing Desk</option>
-                    <option value="Discharged">7. Discharged</option>
+                    <option value="Registered">Registration</option>
+                    <option value="Triaged">Triage Desk</option>
+                    <option value="In_Consultation">Doctor Consult</option>
+                    <option value="Lab_Pending">Laboratory</option>
+                    <option value="Pharmacy_Pending">Pharmacy</option>
+                    <option value="Billing_Pending">Billing Desk</option>
+                    <option value="Discharged">Discharged</option>
                   </select>
                 </div>
                 <div class="sm:col-span-4 flex justify-end gap-2 pt-1">
@@ -1447,7 +1532,7 @@ foreach ($_SESSION['patients'] as $sp) {
                       </span>
                       <div>
                         <div class="text-xs font-extrabold <?= $isDarkBlue ? 'text-white' : 'text-slate-900' ?>">
-                          <?= $cfg['step'] ?>. <?= $cfg['title'] ?>
+                          <?= $cfg['title'] ?>
                         </div>
                       </div>
                     </div>
@@ -1562,11 +1647,11 @@ foreach ($_SESSION['patients'] as $sp) {
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Full Patient Name *</label>
-                <input type="text" name="full_name" required placeholder="" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" name="full_name" required placeholder="e.g. Samuel Mwangi" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Phone Number *</label>
-                <input type="text" name="phone" required placeholder=" " class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" name="phone" required placeholder="+254 712 345 678" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Gender *</label>
@@ -1745,7 +1830,9 @@ foreach ($_SESSION['patients'] as $sp) {
         <div class="max-w-md mx-auto bg-white p-6 rounded-2xl border border-slate-200 shadow-md text-xs space-y-3 text-slate-800" id="printableReceipt">
           <div class="text-center border-b border-dashed border-slate-400 pb-3">
             <h3 class="font-black text-base uppercase"><?= htmlspecialchars($_SESSION['facility_settings']['hospital_name']) ?></h3>
-            <p class="text-[10px] text-slate-500 font-mono">MOH Code: <?= htmlspecialchars($_SESSION['facility_settings']['moh_code']) ?></p>
+            <?php if (!empty($_SESSION['facility_settings']['moh_code'])): ?>
+              <p class="text-[10px] text-slate-500 font-mono">MOH Code: <?= htmlspecialchars($_SESSION['facility_settings']['moh_code']) ?></p>
+            <?php endif; ?>
             <div class="mt-1 font-mono text-[10px] bg-slate-100 p-1 rounded font-bold">OFFICIAL MEDICAL RECEIPT #REC-<?= rand(10000, 99999) ?></div>
           </div>
           <div class="space-y-1">
@@ -1760,7 +1847,7 @@ foreach ($_SESSION['patients'] as $sp) {
           </div>
           <div class="text-center pt-1 text-[10px] text-slate-400">
             <p class="font-bold text-emerald-700">&check; PAID &amp; CLEARED</p>
-            <p>AfyaSmart IHMS</p>
+            <p>AfyaSmart IHMS &bull; Zetech University &bull; Sam Junior Matumbayi</p>
           </div>
           <div class="no-print pt-3 flex flex-wrap gap-2">
             <button type="button" onclick="printReceipt()" class="flex-1 min-w-[130px] py-2.5 bg-[#06559d] hover:bg-[#05437d] text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
@@ -1840,8 +1927,8 @@ foreach ($_SESSION['patients'] as $sp) {
                   <input type="text" name="hospital_name" value="<?= htmlspecialchars($_SESSION['facility_settings']['hospital_name']) ?>" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
                 </div>
                 <div>
-                  <label class="block font-bold text-slate-700 mb-1">MOH Registration Code</label>
-                  <input type="text" name="moh_code" value="<?= htmlspecialchars($_SESSION['facility_settings']['moh_code']) ?>" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
+                  <label class="block font-bold text-slate-700 mb-1">MOH Registration Code (Optional)</label>
+                  <input type="text" name="moh_code" placeholder="Leave blank to hide" value="<?= htmlspecialchars($_SESSION['facility_settings']['moh_code']) ?>" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none">
                 </div>
                 <div>
                   <label class="block font-bold text-slate-700 mb-1">General Consultation Fee (KES)</label>
@@ -1982,7 +2069,7 @@ foreach ($_SESSION['patients'] as $sp) {
 
   <!-- FOOTER -->
   <footer class="bg-slate-900 text-slate-400 py-3 px-5 text-center text-xs border-t border-slate-800 no-print mt-auto">
-    <span>AfyaSmart IHMS &bull; Your Health, Our Priority</span>
+    <span>AfyaSmart IHMS v2.4 &bull; Your Health, Our Priority &bull; Zetech University &bull; Sam Junior Matumbayi (DSE-02-0171/2025)</span>
   </footer>
 
   <!-- MEDICAL PRINT ENGINE & CLIENT SCRIPTS -->

@@ -1,5 +1,13 @@
 <?php
-
+/**
+ * =====================================================================
+ * AFYASMART INTEGRATED HOSPITAL MANAGEMENT SYSTEM (IHMS)
+ * Module: Global Header & Navigation Template
+ * File: header.php (Save to C:\xampp\htdocs\HMS\header.php)
+ * Author: Sam Junior Matumbayi (Reg: DSE-02-0171/2025)
+ * Institution: Zetech University - Department of Computer Science
+ * =====================================================================
+ */
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -192,10 +200,10 @@ if (isset($_GET['theme'])) {
 $isDarkBlue = (isset($_SESSION['theme']) && $_SESSION['theme'] === 'dark_blue');
 
 // Facility Settings State
-if (!isset($_SESSION['facility_settings']) || empty($_SESSION['facility_settings']['hospital_name']) || strpos($_SESSION['facility_settings']['hospital_name'], 'CareFlow') !== false || !empty($_SESSION['facility_settings']['facility_level'])) {
+if (!isset($_SESSION['facility_settings']) || empty($_SESSION['facility_settings']['hospital_name']) || strpos($_SESSION['facility_settings']['hospital_name'], 'CareFlow') !== false || !empty($_SESSION['facility_settings']['facility_level']) || (($_SESSION['facility_settings']['moh_code'] ?? '') === '14892')) {
     $_SESSION['facility_settings'] = [
         'hospital_name'    => 'AfyaSmart Integrated Health Centre',
-        'moh_code'         => '14892',
+        'moh_code'         => '',
         'facility_level'   => '',
         'consultation_fee' => 500.00,
         'triage_high_bp'   => 140,
@@ -256,6 +264,28 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] === 'transition_stage') {
         header("Location: " . $returnPage . "?patient_id={$pid}&msg=stage_transitioned");
         exit;
     }
+}
+
+// Add Active Patient to Lifecycle Handler (Used by dashboard.php quick-add modal)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && safe_str($_POST['action'] ?? null) === 'add_lifecycle_patient') {
+    $pName  = safe_str($_POST['full_name'] ?? null, 'New Active Patient');
+    $phone  = safe_str($_POST['phone'] ?? null, '+254 7' . rand(10000000, 99999999));
+    $gender = safe_str($_POST['gender'] ?? null, 'Male');
+    $scheme = safe_str($_POST['payment_scheme'] ?? null, 'SHA');
+    $stage  = safe_str($_POST['start_stage'] ?? null, 'Registered');
+    $allowedStages = ['Registered', 'Triaged', 'In_Consultation', 'Lab_Pending', 'Pharmacy_Pending', 'Billing_Pending', 'Discharged'];
+    if (!in_array($stage, $allowedStages)) { $stage = 'Registered'; }
+    $newId  = count($_SESSION['patients']) + 30;
+    $opd    = 'OPD-2025-' . str_pad($newId, 3, '0', STR_PAD_LEFT);
+
+    array_unshift($_SESSION['patients'], [
+        'patient_id' => $newId, 'opd_number' => $opd, 'full_name' => $pName,
+        'gender' => $gender, 'phone' => $phone, 'payment_scheme' => $scheme, 'current_status' => $stage
+    ]);
+
+    $returnPage = safe_str($_POST['return_page'] ?? null, 'dashboard.php');
+    header("Location: " . $returnPage . "?patient_id={$newId}&msg=lifecycle_patient_added");
+    exit;
 }
 
 // Active Selected Patient
@@ -379,8 +409,9 @@ $currentTab = safe_str($_GET['tab'] ?? '');
       <div class="leading-tight">
         <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
           <span>AfyaSmart</span>
+          
         </h1>
-        <p class="text-xs text-blue-100 font-medium">Your Health, Our Priority </p>
+        <p class="text-xs text-blue-100 font-medium">Your Health, Our Priority</p>
       </div>
     </div>
 
@@ -486,12 +517,11 @@ $currentTab = safe_str($_GET['tab'] ?? '');
   <div class="bg-blue-900 text-blue-100 text-[11px] px-5 py-1.5 flex flex-wrap items-center justify-between border-b border-blue-800 no-print">
     <div class="flex items-center gap-2 font-mono">
       <span class="h-2 w-2 rounded-full <?= $isDbConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400' ?>"></span>
-     
-      <span class="text-blue-300 hidden sm:inline">|</span>
+      
       
     </div>
     <div class="font-mono text-[10px] text-blue-300">
-    
+     
     </div>
   </div>
 
@@ -505,10 +535,10 @@ $currentTab = safe_str($_GET['tab'] ?? '');
         <div class="px-4 py-3 border-b <?= $isDarkBlue ? 'border-[#1b3b6f] bg-[#07162c]' : 'border-[#c6e1f8] bg-[#dbebfc]' ?> flex items-center justify-between">
           <span class="text-xs font-black uppercase tracking-wider <?= $isDarkBlue ? 'text-sky-300' : 'text-[#06559d]' ?> flex items-center gap-1.5">
             <i class="fa-solid fa-list-check"></i>
-            <span><?= $currentUser['role'] === 'admin' ? 'Hospital Operations' : '' ?></span>
+            <span><?= $currentUser['role'] === 'admin' ? 'Hospital Operations' : 'My Workstation' ?></span>
           </span>
           <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#06559d] text-white font-mono">
-            <?= $currentUser['role'] === 'admin' ? '' : strtoupper(htmlspecialchars(str_replace('_', ' ', $currentUser['role']))) ?>
+            
           </span>
         </div>
 
@@ -616,8 +646,7 @@ $currentTab = safe_str($_GET['tab'] ?? '');
         <?php endif; ?>
       </div>
 
-      <!-- Quick Switcher Footer: ONLY ADMIN CAN SEE ALL STAFF ROLES -->
-     
+      
     </aside>
 
     <!-- RIGHT WORKSPACE (Fills all remaining space) -->
